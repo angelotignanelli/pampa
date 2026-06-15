@@ -1,6 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { parseCat, gdpFmt, pillClass } from "@/lib/cat";
-import { getLots, getRations, getOverview, getHerdHealth, getEconomy, herdValue } from "@/lib/queries";
+import { getLots, getOverview, getHerdHealth, getEconomy, herdValue } from "@/lib/queries";
 import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
 import { Gauge } from "@/components/Gauge";
 import { RhythmPanel, type RhythmItem } from "@/components/RhythmPanel";
@@ -11,13 +11,12 @@ const CAT_ORDER = ["STEER", "CALF", "COW"];
 
 export default async function ResumenPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
   const cat = parseCat((await searchParams).cat);
-  const user = await getSession();
-  const lots = await getLots(cat);
-  const rations = await getRations(cat, lots);
-  const [overview, health, economy] = await Promise.all([
-    getOverview(cat, lots, rations),
+  const [user, lots, overview, health, economy] = await Promise.all([
+    getSession(),
+    getLots(cat),
+    getOverview(cat),
     getHerdHealth(cat),
-    getEconomy(cat, lots, rations),
+    getEconomy(cat),
   ]);
 
   const firstName = user?.name.split(" ")[0] ?? "";

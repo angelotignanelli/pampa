@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canManage } from "@/lib/auth";
+import { clearFarmCache } from "@/lib/queries";
 
 function num(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? "").replace(",", "."));
@@ -42,6 +43,7 @@ export async function createWeighing(formData: FormData) {
       createdById: user.id,
     },
   });
+  clearFarmCache();
   revalidatePath("/pesajes");
   revalidatePath("/");
   redirect("/pesajes");
@@ -62,6 +64,7 @@ export async function createLot(formData: FormData) {
       paddockId: str(formData.get("paddockId")) || null,
     },
   });
+  clearFarmCache();
   revalidatePath("/lotes");
   redirect("/lotes");
 }
@@ -84,6 +87,7 @@ export async function createAnimal(formData: FormData) {
       lotId,
     },
   });
+  clearFarmCache();
   revalidatePath("/lotes");
   redirect("/lotes");
 }
@@ -109,6 +113,7 @@ export async function createRation(formData: FormData) {
       items: { create: items },
     },
   });
+  clearFarmCache();
   revalidatePath("/alimentacion");
   redirect("/alimentacion");
 }
@@ -130,6 +135,7 @@ export async function createTreatment(formData: FormData) {
       cost: Math.round(num(formData.get("cost"))),
     },
   });
+  clearFarmCache();
   revalidatePath("/sanidad");
   redirect("/sanidad");
 }
@@ -151,6 +157,7 @@ export async function createMovement(formData: FormData) {
       note: str(formData.get("note")) || null,
     },
   });
+  clearFarmCache();
   revalidatePath("/lotes");
   redirect("/lotes");
 }

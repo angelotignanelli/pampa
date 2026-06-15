@@ -66,9 +66,9 @@ export default async function SanidadPage({
                 const st = STATUS_STYLE[t.status] ?? STATUS_STYLE.SCHEDULED;
                 return (
                   <tr key={t.id}>
-                    <td>{t.date.toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}</td>
+                    <td>{new Date(t.date).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}</td>
                     <td>{t.name}</td>
-                    <td>{t.lot.name}</td>
+                    <td>{t.lotName}</td>
                     <td>{t.withdrawalDays > 0 ? `${t.withdrawalDays} días` : "—"}</td>
                     <td>
                       <span className="pill" style={{ background: st.bg, color: st.color }}>{st.label}</span>
