@@ -61,7 +61,7 @@ export function Shell({
   return (
     <div style={{ minHeight: "100vh", display: "flex", gap: 14, padding: 14, background: "var(--bg-tertiary)" }}>
       {/* Sidebar */}
-      <aside style={{ width: 248, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18, padding: "8px 6px" }}>
+      <aside style={{ width: 248, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18, padding: "8px 6px", position: "sticky", top: 14, alignSelf: "flex-start", height: "calc(100vh - 28px)", overflowY: "auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px" }}>
           <div style={{ width: 30, height: 30, borderRadius: 9, background: "var(--olive)", color: "#f4f1e8", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <IconLeaf size={18} />

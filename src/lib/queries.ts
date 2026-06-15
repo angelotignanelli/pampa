@@ -82,8 +82,8 @@ export type Overview = {
   costPerKg: number | null;
 };
 
-export async function getOverview(cat: CatFilter): Promise<Overview> {
-  const lots = await getLots(cat);
+export async function getOverview(cat: CatFilter, lotsArg?: LotMetrics[], rationsArg?: RationView[]): Promise<Overview> {
+  const lots = lotsArg ?? (await getLots(cat));
   const headCount = lots.reduce((a, l) => a + l.headCount, 0);
   const weightedGdp =
     headCount > 0 ? lots.reduce((a, l) => a + l.gdp * l.headCount, 0) / headCount : 0;
@@ -94,7 +94,7 @@ export async function getOverview(cat: CatFilter): Promise<Overview> {
   let costPerKg: number | null = null;
 
   if (fattening.length > 0) {
-    const rations = await getRations(cat);
+    const rations = rationsArg ?? (await getRations(cat, lots));
     const byLot = new Map(rations.map((r) => [r.lotId, r]));
     let dmiSum = 0;
     let gainSum = 0;
@@ -139,8 +139,8 @@ export type RationView = {
   conversion: number;
 };
 
-export async function getRations(cat: CatFilter): Promise<RationView[]> {
-  const lots = await getLots(cat);
+export async function getRations(cat: CatFilter, lotsArg?: LotMetrics[]): Promise<RationView[]> {
+  const lots = lotsArg ?? (await getLots(cat));
   const lotById = new Map(lots.map((l) => [l.id, l]));
 
   const rations = await prisma.ration.findMany({
@@ -238,9 +238,9 @@ export type EconomyRow = {
 
 const SALE_PRICE_PER_KG = 1950;
 
-export async function getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; salePrice: number }> {
-  const lots = await getLots(cat);
-  const rations = await getRations(cat);
+export async function getEconomy(cat: CatFilter, lotsArg?: LotMetrics[], rationsArg?: RationView[]): Promise<{ rows: EconomyRow[]; salePrice: number }> {
+  const lots = lotsArg ?? (await getLots(cat));
+  const rations = rationsArg ?? (await getRations(cat, lots));
   const rationByLot = new Map(rations.map((r) => [r.lotId, r]));
   const treatments = await prisma.treatment.groupBy({
     by: ["lotId"],
