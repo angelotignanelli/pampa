@@ -13,7 +13,6 @@ import {
   IconList,
   IconLeaf,
   IconFilter,
-  IconSearch,
   IconSettings,
   IconBell,
   IconHeadset,
@@ -67,26 +66,6 @@ export function Shell({
             <IconLeaf size={18} />
           </div>
           <span style={{ fontSize: 16, fontWeight: 500 }}>Pampa</span>
-        </div>
-
-        <div style={{ position: "relative" }}>
-          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", display: "flex" }}>
-            <IconSearch size={15} />
-          </span>
-          <input
-            placeholder="Buscar"
-            style={{
-              width: "100%",
-              height: 38,
-              padding: "0 12px 0 34px",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--border)",
-              background: "var(--bg-primary)",
-              color: "var(--text-primary)",
-              fontSize: 13,
-            }}
-          />
-          <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "var(--text-tertiary)", border: "1px solid var(--border)", borderRadius: 6, padding: "1px 6px", background: "var(--bg-secondary)" }}>⌘K</span>
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: 3 }}>
