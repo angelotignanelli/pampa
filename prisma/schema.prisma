@@ -1,0 +1,164 @@
+// Pampa — esquema de datos (PostgreSQL / Supabase)
+// DATABASE_URL: connection pooling de Supabase (Supavisor, puerto 6543, con ?pgbouncer=true)
+// DIRECT_URL: conexión directa (puerto 5432) para migraciones.
+// Categorías, roles y tipos van como String; las constantes viven en src/lib/domain.ts.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String   @default("")
+  role         String   @default("WORKER") // OWNER | MANAGER | WORKER
+  farmId       String?
+  farm      Farm?    @relation(fields: [farmId], references: [id])
+  createdAt DateTime @default(now())
+
+  weighings  Weighing[]
+  treatments Treatment[]
+  rations    Ration[]
+  movements  Movement[]
+}
+
+model Farm {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  hectares  Float?
+  createdAt DateTime @default(now())
+
+  users    User[]
+  paddocks Paddock[]
+  lots     Lot[]
+}
+
+model Paddock {
+  id       String  @id @default(cuid())
+  name     String
+  hectares Float?
+  farmId   String
+  farm     Farm    @relation(fields: [farmId], references: [id])
+  lots     Lot[]
+}
+
+model Lot {
+  id        String   @id @default(cuid())
+  name      String
+  category  String // COW | STEER | CALF
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id])
+  paddockId String?
+  paddock   Paddock? @relation(fields: [paddockId], references: [id])
+  createdAt DateTime @default(now())
+
+  animals    Animal[]
+  weighings  Weighing[]
+  rations    Ration[]
+  treatments Treatment[]
+  movements  Movement[]
+}
+
+model Animal {
+  id        String    @id @default(cuid())
+  tag       String // caravana visual
+  rfid      String? // chip electrónico
+  category  String // COW | STEER | CALF
+  sex       String? // M | F
+  birthDate DateTime?
+  status    String    @default("ACTIVE") // ACTIVE | SOLD | DEAD
+  lotId     String
+  lot       Lot       @relation(fields: [lotId], references: [id])
+  createdAt DateTime  @default(now())
+
+  weighings Weighing[]
+
+  @@unique([tag])
+}
+
+model Weighing {
+  id          String   @id @default(cuid())
+  weightKg    Float
+  date        DateTime
+  animalId    String
+  animal      Animal   @relation(fields: [animalId], references: [id])
+  lotId       String
+  lot         Lot      @relation(fields: [lotId], references: [id])
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([animalId, date])
+}
+
+model FeedIngredient {
+  id           String  @id @default(cuid())
+  name         String // Maíz, Silo de maíz, Expeller de soja...
+  type         String // CARB | FIBER | PROTEIN
+  dryMatterPct Float // % materia seca
+  proteinPct   Float // % proteína bruta
+  energyMcal   Float // EM Mcal/kg MS
+  costPerKg    Int // ARS por kg (entero)
+
+  rationItems RationItem[]
+}
+
+model Ration {
+  id             String       @id @default(cuid())
+  name           String
+  effectiveFrom  DateTime
+  kgPerHeadDay   Float // kg de mezcla por cabeza por día
+  lotId          String
+  lot            Lot          @relation(fields: [lotId], references: [id])
+  createdById    String?
+  createdBy      User?        @relation(fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  items          RationItem[]
+}
+
+model RationItem {
+  id           String         @id @default(cuid())
+  rationId     String
+  ration       Ration         @relation(fields: [rationId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   FeedIngredient @relation(fields: [ingredientId], references: [id])
+  percentage   Float // % sobre la mezcla
+}
+
+model Treatment {
+  id            String   @id @default(cuid())
+  name          String
+  type          String // VACCINE | ANTIPARASITIC | VITAMIN | OTHER
+  date          DateTime
+  status        String   @default("SCHEDULED") // SCHEDULED | PENDING | DONE
+  withdrawalDays Int     @default(0) // período de carencia
+  cost          Int      @default(0) // ARS
+  lotId         String
+  lot           Lot      @relation(fields: [lotId], references: [id])
+  createdById   String?
+  createdBy     User?    @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+}
+
+model Movement {
+  id          String   @id @default(cuid())
+  type        String // PURCHASE | SALE | BIRTH | DEATH | RECATEGORIZATION
+  quantity    Int
+  amount      Int      @default(0) // ARS total (compra/venta)
+  date        DateTime
+  note        String?
+  lotId       String
+  lot         Lot      @relation(fields: [lotId], references: [id])
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+}

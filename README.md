@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pampa
 
-## Getting Started
+Plataforma de gestión ganadera: pesajes, alimentación, sanidad y rentabilidad por
+categoría de animal (novillo, vaca, ternero). Versión evolucionada de los bocetos —
+ya es una app real con base de datos, no HTML estático.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router, React 19, server components) + **TypeScript**
+- **Prisma 6** ORM
+- **SQLite** en local (para correr sin infra). En producción: cambiar el datasource a
+  PostgreSQL y los `Float` de dinero a `Decimal`.
+- **Tailwind v4** + sistema de diseño propio en `globals.css`
+
+## Cómo correr
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npx prisma migrate dev   # crea la base y aplica migraciones
+npm run seed             # carga datos sintéticos (3 lotes, 74 animales, 296 pesajes)
+npm run dev              # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Para reiniciar la base con datos frescos: `npm run db:reset`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Usuarios de demo (contraseña `campo1234`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Email | Rol |
+|-------|-----|
+| juan@laesperanza.ar | Dueño |
+| marcos@laesperanza.ar | Encargado |
+| luis@laesperanza.ar | Peón |
 
-## Learn More
+El peón puede cargar datos pero no crear lotes. Configurá `AUTH_SECRET` en `.env`
+(ya se genera uno al primer build).
 
-To learn more about Next.js, take a look at the following resources:
+## Estructura
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+prisma/
+  schema.prisma     # modelo de datos: Farm, Paddock, Lot, Animal, Weighing,
+                    # Ration, RationItem, FeedIngredient, Treatment, Movement, User
+  seed.ts           # generador de datos sintéticos determinístico
+src/
+  lib/
+    domain.ts       # constantes y fórmulas (GDP, conversión, MS, costo/kg, etc.)
+    queries.ts      # consultas + cálculos derivados por categoría
+    prisma.ts       # singleton del cliente
+    cat.ts          # parseo del filtro y formateadores
+  components/
+    Shell.tsx       # cabecera + filtro de categoría + menú lateral
+    WeightChart.tsx # curva de peso con proyección (SVG)
+    icons.tsx       # íconos SVG inline
+  app/
+    page.tsx        # Resumen
+    pesajes/        # Pesajes (GDP por animal)
+    alimentacion/   # Receta del mixer + aporte nutricional
+    sanidad/        # Calendario sanitario
+    economia/       # Rentabilidad por lote
+    lotes/          # Inventario de hacienda
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Filtro por categoría
 
-## Deploy on Vercel
+Es global y se propaga por URL (`?cat=STEER|COW|CALF`), así persiste al navegar entre
+pestañas. Las métricas de engorde (conversión, costo/kg, margen) se muestran como "—"
+para vacas de cría, porque no aplican.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Funciona
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Autenticación** con sesión por cookie firmada (HMAC) + roles (dueño / encargado / peón).
+- **Carga de datos real** (server actions): pesajes, lotes, animales, raciones,
+  tratamientos y movimientos. Las pantallas se recalculan al guardar.
+- **Filtro por categoría** global, persistido por URL.
+- **PWA** instalable con service worker (cachea el shell para lectura offline).
+
+## Pendiente / próximas fases
+
+- Edición y borrado de registros (hoy es alta + listado).
+- Sincronización offline de **escrituras** (cola de mutaciones) — el SW hoy solo cachea lectura.
+- Importador del Excel existente.
+- Integraciones de hardware: balanza por bluetooth, lector de chip/RFID.
+- Íconos PNG para la PWA (hoy usa SVG) y migración a PostgreSQL para producción.

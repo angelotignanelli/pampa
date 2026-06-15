@@ -1,0 +1,163 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { logout } from "@/lib/actions/auth";
+import type { SessionUser } from "@/lib/auth";
+import {
+  IconDashboard,
+  IconScale,
+  IconBowl,
+  IconHealth,
+  IconCash,
+  IconList,
+  IconLeaf,
+  IconFilter,
+  IconSearch,
+  IconSettings,
+  IconBell,
+  IconHeadset,
+  IconLogout,
+} from "@/components/icons";
+
+const ROLE_LABEL: Record<string, string> = { OWNER: "Dueño", MANAGER: "Encargado", WORKER: "Peón" };
+
+const NAV = [
+  { href: "/", label: "Resumen", Icon: IconDashboard, badge: "" },
+  { href: "/pesajes", label: "Pesajes", Icon: IconScale, badge: "pesajes" },
+  { href: "/alimentacion", label: "Alimentación", Icon: IconBowl, badge: "" },
+  { href: "/sanidad", label: "Sanidad", Icon: IconHealth, badge: "sanidad" },
+  { href: "/economia", label: "Economía", Icon: IconCash, badge: "" },
+  { href: "/lotes", label: "Lotes", Icon: IconList, badge: "" },
+];
+
+const FILTERS = [
+  { cat: "ALL", label: "Todos" },
+  { cat: "STEER", label: "Novillos" },
+  { cat: "COW", label: "Vacas" },
+  { cat: "CALF", label: "Terneros" },
+];
+
+function initials(name: string): string {
+  return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+}
+
+export function Shell({
+  children,
+  user,
+  badges = {},
+}: {
+  children: React.ReactNode;
+  user: SessionUser;
+  badges?: Record<string, number>;
+}) {
+  const pathname = usePathname();
+  const params = useSearchParams();
+  const cat = params.get("cat") ?? "ALL";
+
+  const withCat = (href: string) => (cat === "ALL" ? href : `${href}?cat=${cat}`);
+  const withFilter = (c: string) => (c === "ALL" ? pathname : `${pathname}?cat=${c}`);
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", gap: 14, padding: 14, background: "var(--bg-tertiary)" }}>
+      {/* Sidebar */}
+      <aside style={{ width: 248, flexShrink: 0, display: "flex", flexDirection: "column", gap: 18, padding: "8px 6px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px" }}>
+          <div style={{ width: 30, height: 30, borderRadius: 9, background: "var(--olive)", color: "#f4f1e8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <IconLeaf size={18} />
+          </div>
+          <span style={{ fontSize: 16, fontWeight: 500 }}>Pampa</span>
+        </div>
+
+        <div style={{ position: "relative" }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)", display: "flex" }}>
+            <IconSearch size={15} />
+          </span>
+          <input
+            placeholder="Buscar"
+            style={{
+              width: "100%",
+              height: 38,
+              padding: "0 12px 0 34px",
+              borderRadius: "var(--radius-md)",
+              border: "1px solid var(--border)",
+              background: "var(--bg-primary)",
+              color: "var(--text-primary)",
+              fontSize: 13,
+            }}
+          />
+          <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "var(--text-tertiary)", border: "1px solid var(--border)", borderRadius: 6, padding: "1px 6px", background: "var(--bg-secondary)" }}>⌘K</span>
+        </div>
+
+        <nav style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {NAV.map(({ href, label, Icon, badge }) => {
+            const active = pathname === href;
+            const count = badge ? badges[badge] : 0;
+            return (
+              <Link key={href} href={withCat(href)} className={`nav-item${active ? " active" : ""}`}>
+                <Icon size={17} />
+                {label}
+                {count ? <span className="nav-badge">{count}</span> : null}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Tarjeta upgrade */}
+        <div style={{ background: "var(--olive)", color: "#f4f1e8", borderRadius: "var(--radius-lg)", padding: 16 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(244,241,232,0.15)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+            <IconScale size={16} />
+          </div>
+          <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 500 }}>Automatizá el pesaje</p>
+          <p style={{ margin: "0 0 12px", fontSize: 12, color: "rgba(244,241,232,0.7)", lineHeight: 1.5 }}>
+            Conectá tu balanza o lector RFID y cargá pesajes sin escribir.
+          </p>
+          <button style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none", background: "#f4f1e8", color: "var(--olive)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
+            Conectar
+          </button>
+        </div>
+
+        {/* Usuario */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--info-bg)", color: "var(--info-text)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500 }}>
+            {initials(user.name)}
+          </div>
+          <div style={{ lineHeight: 1.3, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</p>
+            <p style={{ margin: 0, fontSize: 11, color: "var(--text-tertiary)" }}>{ROLE_LABEL[user.role] ?? user.role}</p>
+          </div>
+          <form action={logout} style={{ marginLeft: "auto" }}>
+            <button type="submit" className="icon-btn" aria-label="Salir" style={{ width: 32, height: 32 }}>
+              <IconLogout size={16} />
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      {/* Panel principal */}
+      <div className="panel" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 5, marginRight: 4 }}>
+              <IconFilter size={14} /> Categoría
+            </span>
+            {FILTERS.map((f) => (
+              <Link key={f.cat} href={withFilter(f.cat)} className={`chip${cat === f.cat ? " active" : ""}`}>
+                {f.label}
+              </Link>
+            ))}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button className="icon-btn" aria-label="Soporte"><IconHeadset size={17} /></button>
+            <button className="icon-btn" aria-label="Configuración"><IconSettings size={17} /></button>
+            <button className="icon-btn" aria-label="Notificaciones"><IconBell size={17} /></button>
+          </div>
+        </div>
+
+        <main style={{ flex: 1, minWidth: 0, padding: "24px 26px" }}>{children}</main>
+      </div>
+    </div>
+  );
+}
