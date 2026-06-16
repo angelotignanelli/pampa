@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { parseCat, pillClass } from "@/lib/cat";
-import { getEconomy, getOverview, getLots } from "@/lib/queries";
-import { formatARS, categoryLabel } from "@/lib/domain";
-import { IconBell } from "@/components/icons";
+import { getEconomy, getOverview, getLots, getOwnerSplit } from "@/lib/queries";
+import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
+import { IconBell, IconUsers } from "@/components/icons";
 
 function compactARS(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}M`;
@@ -15,10 +16,11 @@ export default async function EconomiaPage({
   searchParams: Promise<{ cat?: string }>;
 }) {
   const cat = parseCat((await searchParams).cat);
-  const [{ rows, salePrice }, overview, lots] = await Promise.all([
+  const [{ rows, salePrice }, overview, lots, split] = await Promise.all([
     getEconomy(cat),
     getOverview(cat),
     getLots(cat),
+    getOwnerSplit(cat),
   ]);
 
   const fattening = lots.filter((l) => l.category !== "COW");
@@ -81,6 +83,45 @@ export default async function EconomiaPage({
           </tbody>
         </table>
       </div>
+
+      {split.owners.length > 0 && (
+        <div className="card" style={{ marginTop: 12, padding: 0, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 7 }}>
+              <IconUsers size={15} /> Reparto por socio
+            </span>
+            <Link href="/socios" style={{ fontSize: 12, color: "var(--text-secondary)" }}>Gestionar socios →</Link>
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Socio</th>
+                <th className="num">Kg de carne</th>
+                <th className="num">Valor</th>
+                <th className="num">Margen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {split.owners.map((o) => (
+                <tr key={o.id}>
+                  <td style={{ fontWeight: 500 }}>
+                    {o.name}
+                    {o.globalPct !== null && (
+                      <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: 8 }}>{o.globalPct}% global</span>
+                    )}
+                  </td>
+                  <td className="num">{formatKg(o.kg)}</td>
+                  <td className="num">{formatARS(o.valueShare)}</td>
+                  <td className="num pos">{formatARS(o.marginShare)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ padding: "8px 14px", fontSize: 11, color: "var(--text-tertiary)", borderTop: "1px solid var(--border)" }}>
+            Según la participación de cada socio (global o el reparto propio de cada lote). El margen de las vacas de cría no se reparte.
+          </div>
+        </div>
+      )}
 
       {sellReady && (
         <div className="card" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12, borderColor: "var(--info-text)" }}>

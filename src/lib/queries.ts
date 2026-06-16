@@ -17,12 +17,24 @@ export type CatFilter = CategoryKey | "ALL";
 // En dev (un solo proceso) y en instancias serverless tibias, cambiar de tab sirve desde acá.
 const TTL_MS = 120_000;
 const store = new Map<string, { t: number; v: unknown }>();
+const inflight = new Map<string, Promise<unknown>>();
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const hit = store.get(key);
   if (hit && Date.now() - hit.t < TTL_MS) return hit.v as T;
-  const v = await fn();
-  store.set(key, { t: Date.now(), v });
-  return v;
+  // Dedupe: si ya hay una consulta igual en vuelo, esperamos esa (no la repetimos).
+  const pending = inflight.get(key);
+  if (pending) return pending as Promise<T>;
+  const p = (async () => {
+    try {
+      const v = await fn();
+      store.set(key, { t: Date.now(), v });
+      return v;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, p);
+  return p as Promise<T>;
 }
 /** Invalida toda la caché de datos del campo. Llamar tras cada mutación. */
 export function clearFarmCache() {
@@ -351,7 +363,7 @@ async function _getHerdHealth(cat: CatFilter): Promise<HerdHealth> {
 export const getHerdHealth = (cat: CatFilter) => cached(`getHerdHealth:${cat}`, () => _getHerdHealth(cat));
 
 export type OwnerSplit = {
-  owners: { id: string; name: string; globalPct: number | null; kg: number; valueShare: number }[];
+  owners: { id: string; name: string; globalPct: number | null; kg: number; valueShare: number; marginShare: number }[];
   lots: {
     lotId: string;
     lotName: string;
@@ -364,12 +376,14 @@ export type OwnerSplit = {
   salePrice: number;
 };
 
-async function _getOwnerSplit(): Promise<OwnerSplit> {
-  const [owners, lots, shares] = await Promise.all([
+async function _getOwnerSplit(cat: CatFilter): Promise<OwnerSplit> {
+  const [owners, lots, shares, economy] = await Promise.all([
     prisma.owner.findMany({ orderBy: { name: "asc" } }),
-    getLots("ALL"),
+    getLots(cat),
     prisma.share.findMany(),
+    getEconomy(cat),
   ]);
+  const marginPerKgByLot = new Map(economy.rows.map((r) => [r.lotId, r.marginPerKg]));
 
   const globalByOwner = new Map<string, number>();
   const lotShares = new Map<string, { ownerId: string; sharePct: number }[]>();
@@ -383,8 +397,11 @@ async function _getOwnerSplit(): Promise<OwnerSplit> {
   }
 
   const ownerKg = new Map<string, number>();
+  const ownerMargin = new Map<string, number>();
   const lotsOut = lots.map((l) => {
     const kg = l.headCount * l.avgWeight;
+    const mpk = marginPerKgByLot.get(l.id) ?? null;
+    const lotMargin = mpk !== null ? mpk * kg : 0; // vacas de cría: margen 0
     const custom = lotShares.has(l.id);
     const eff = custom
       ? lotShares.get(l.id)!
@@ -392,9 +409,10 @@ async function _getOwnerSplit(): Promise<OwnerSplit> {
     const parts = eff
       .map((e) => {
         const o = owners.find((x) => x.id === e.ownerId);
-        const pkg = kg * (e.sharePct / 100);
-        ownerKg.set(e.ownerId, (ownerKg.get(e.ownerId) ?? 0) + pkg);
-        return { ownerId: e.ownerId, name: o?.name ?? "—", pct: e.sharePct, kg: Math.round(pkg) };
+        const f = e.sharePct / 100;
+        ownerKg.set(e.ownerId, (ownerKg.get(e.ownerId) ?? 0) + kg * f);
+        ownerMargin.set(e.ownerId, (ownerMargin.get(e.ownerId) ?? 0) + lotMargin * f);
+        return { ownerId: e.ownerId, name: o?.name ?? "—", pct: e.sharePct, kg: Math.round(kg * f) };
       })
       .filter((p) => p.pct > 0);
     return { lotId: l.id, lotName: l.name, category: l.category, kg: Math.round(kg), custom, parts };
@@ -406,11 +424,12 @@ async function _getOwnerSplit(): Promise<OwnerSplit> {
     globalPct: globalByOwner.has(o.id) ? globalByOwner.get(o.id)! : null,
     kg: Math.round(ownerKg.get(o.id) ?? 0),
     valueShare: Math.round((ownerKg.get(o.id) ?? 0) * SALE_PRICE_PER_KG),
+    marginShare: Math.round(ownerMargin.get(o.id) ?? 0),
   }));
   const totalKg = Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight, 0));
   return { owners: ownersOut, lots: lotsOut, totalKg, salePrice: SALE_PRICE_PER_KG };
 }
-export const getOwnerSplit = () => cached("getOwnerSplit", () => _getOwnerSplit());
+export const getOwnerSplit = (cat: CatFilter) => cached(`getOwnerSplit:${cat}`, () => _getOwnerSplit(cat));
 
 export async function getOwners() {
   return prisma.owner.findMany({ orderBy: { name: "asc" } });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
+import { LinkSpinner } from "@/components/LinkSpinner";
 import type { SessionUser } from "@/lib/auth";
 import {
   IconDashboard,
@@ -78,7 +79,10 @@ export function Shell({
               <Link key={href} href={withCat(href)} className={`nav-item${active ? " active" : ""}`}>
                 <Icon size={17} />
                 {label}
-                {count ? <span className="nav-badge">{count}</span> : null}
+                <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <LinkSpinner />
+                  {count ? <span className="nav-badge" style={{ marginLeft: 0 }}>{count}</span> : null}
+                </span>
               </Link>
             );
           })}
@@ -126,7 +130,10 @@ export function Shell({
             </span>
             {FILTERS.map((f) => (
               <Link key={f.cat} href={withFilter(f.cat)} className={`chip${cat === f.cat ? " active" : ""}`}>
-                {f.label}
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  {f.label}
+                  <LinkSpinner />
+                </span>
               </Link>
             ))}
           </div>

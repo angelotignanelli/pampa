@@ -5,7 +5,7 @@ import { pillClass } from "@/lib/cat";
 import { IconPlus, IconEdit } from "@/components/icons";
 
 export default async function SociosPage() {
-  const split = await getOwnerSplit();
+  const split = await getOwnerSplit("ALL");
 
   return (
     <>
