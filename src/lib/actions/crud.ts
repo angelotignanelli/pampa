@@ -69,24 +69,27 @@ export async function createLot(formData: FormData) {
   redirect("/lotes");
 }
 
-export async function createAnimal(formData: FormData) {
+export async function createAnimals(formData: FormData) {
   await requireUser();
-  const tag = str(formData.get("tag"));
   const lotId = str(formData.get("lotId"));
-  if (!tag || !lotId) throw new Error("Datos de animal inválidos");
+  const quantity = Math.round(num(formData.get("quantity")));
+  const sex = str(formData.get("sex")) || null;
+  const prefix = str(formData.get("tagPrefix"));
+  const start = Math.max(1, Math.round(num(formData.get("startNumber")) || 1));
+  if (!lotId || quantity < 1) throw new Error("Datos de animales inválidos");
+  if (quantity > 2000) throw new Error("Máximo 2000 animales por carga");
 
   const lot = await prisma.lot.findUnique({ where: { id: lotId } });
   if (!lot) throw new Error("Lote no encontrado");
 
-  await prisma.animal.create({
-    data: {
-      tag,
-      rfid: str(formData.get("rfid")) || null,
-      category: lot.category,
-      sex: str(formData.get("sex")) || null,
-      lotId,
-    },
-  });
+  const data = Array.from({ length: quantity }, (_, i) => ({
+    tag: `${prefix}${String(start + i).padStart(4, "0")}`,
+    category: lot.category,
+    sex,
+    lotId,
+  }));
+  // skipDuplicates evita romper si alguna caravana ya existe (se omite y sigue).
+  await prisma.animal.createMany({ data, skipDuplicates: true });
   clearFarmCache();
   revalidatePath("/lotes");
   redirect("/lotes");
