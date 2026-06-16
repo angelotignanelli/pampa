@@ -42,6 +42,7 @@ export type LotMetrics = {
   avgWeight: number;
   prevAvgWeight: number;
   gdp: number;
+  lastWeighDate: string | null;
 };
 
 async function _getLots(cat: CatFilter): Promise<LotMetrics[]> {
@@ -81,6 +82,7 @@ async function _getLots(cat: CatFilter): Promise<LotMetrics[]> {
       avgWeight: lastAvg,
       prevAvgWeight: prevAvg,
       gdp,
+      lastWeighDate: last ? last.date.toISOString() : null,
     };
   });
 }
@@ -217,6 +219,29 @@ async function _getWeighingRows(cat: CatFilter): Promise<{ lotName: string; rows
   }));
 }
 export const getWeighingRows = (cat: CatFilter) => cached(`getWeighingRows:${cat}`, () => _getWeighingRows(cat));
+
+export type LotWeighing = { lotName: string; category: string; rows: AnimalRow[] };
+
+async function _getLotWeighingRows(lotId: string): Promise<LotWeighing | null> {
+  const lot = await prisma.lot.findUnique({
+    where: { id: lotId },
+    include: { animals: { include: { weighings: { orderBy: { date: "asc" } } } } },
+  });
+  if (!lot) return null;
+  const rows = lot.animals
+    .map((a) => {
+      const ws = a.weighings;
+      const curr = ws[ws.length - 1];
+      const prev = ws[ws.length - 2];
+      const delta = curr && prev ? curr.weightKg - prev.weightKg : null;
+      const gdp = curr && prev ? dailyGain(prev.weightKg, curr.weightKg, prev.date, curr.date) : null;
+      return { tag: a.tag, prevKg: prev?.weightKg ?? null, currKg: curr?.weightKg ?? null, delta, gdp };
+    })
+    .sort((a, b) => a.tag.localeCompare(b.tag));
+  return { lotName: lot.name, category: lot.category, rows };
+}
+export const getLotWeighingRows = (lotId: string) =>
+  cached(`getLotWeighingRows:${lotId}`, () => _getLotWeighingRows(lotId));
 
 export type TreatmentRow = {
   id: string;
