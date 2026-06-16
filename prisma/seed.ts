@@ -41,6 +41,7 @@ async function main() {
   await prisma.feedIngredient.deleteMany();
   await prisma.marketPrice.deleteMany();
   await prisma.priceSetting.deleteMany();
+  await prisma.sourceStatus.deleteMany();
   await prisma.user.deleteMany();
   await prisma.farm.deleteMany();
 
@@ -185,11 +186,15 @@ async function main() {
 
   // Cotización inicial (valores reales del Mercado de Cañuelas al 16/06/2026).
   // El cron diario va sumando registros nuevos; estos sirven de arranque y de respaldo.
+  const cotizDate = new Date(2026, 5, 16); // 16/06/2026 hora local (evita corrimiento por UTC)
   await prisma.marketPrice.createMany({
     data: [
-      { source: "MAG_CANUELAS", category: "STEER", label: "Novillos", pricePerKg: 4468, refDate: new Date("2026-06-16") },
-      { source: "MAG_CANUELAS", category: "COW", label: "Vacas", pricePerKg: 2629, refDate: new Date("2026-06-16") },
+      { source: "MAG_CANUELAS", category: "STEER", label: "Novillos", pricePerKg: 4468, refDate: cotizDate },
+      { source: "MAG_CANUELAS", category: "COW", label: "Vacas", pricePerKg: 2629, refDate: cotizDate },
     ],
+  });
+  await prisma.sourceStatus.create({
+    data: { source: "MAG_CANUELAS", ok: true, lastOkAt: cotizDate, lastTryAt: cotizDate },
   });
 
   const totals = {

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import {
   CATEGORIES,
   dailyGain,
+  daysBetween,
   projectDateForTarget,
   dietDryMatterPct,
   dietProteinPct,
@@ -149,13 +150,17 @@ export type RationView = {
   category: string;
   name: string;
   kgPerHeadDay: number;
-  items: { name: string; type: string; percentage: number; kg: number }[];
+  // Por ingrediente: % de la mezcla, kg/cabeza/día y $/kg del insumo.
+  items: { name: string; type: string; percentage: number; kg: number; costPerKg: number }[];
   dryMatterPct: number;
   proteinPct: number;
-  dmiPerDay: number;
-  dmiBodyWeightPct: number;
-  costPerDay: number;
+  dmiPerDay: number; // materia seca por animal por día (kg)
+  dmiBodyWeightPct: number; // consumo MS como % del peso vivo
+  costPerDay: number; // $ alimento por animal por día
   conversion: number;
+  headCount: number;
+  avgWeight: number; // peso promedio por animal (último pesaje)
+  daysInFeedlot: number; // días desde que arrancó la ración (corral)
 };
 
 async function _getRations(cat: CatFilter): Promise<RationView[]> {
@@ -168,6 +173,7 @@ async function _getRations(cat: CatFilter): Promise<RationView[]> {
     }),
   ]);
   const lotById = new Map(lots.map((l) => [l.id, l]));
+  const now = new Date();
 
   return rations.map((r) => {
     const items = r.items.map((it) => ({
@@ -193,13 +199,16 @@ async function _getRations(cat: CatFilter): Promise<RationView[]> {
       category: r.lot.category,
       name: r.name,
       kgPerHeadDay: r.kgPerHeadDay,
-      items: items.map(({ name, type, percentage, kg }) => ({ name, type, percentage, kg })),
+      items: items.map(({ name, type, percentage, kg, costPerKg }) => ({ name, type, percentage, kg, costPerKg })),
       dryMatterPct: dm,
       proteinPct: protein,
       dmiPerDay: dmi,
       dmiBodyWeightPct: dmiBw,
       costPerDay: rationCostPerDay(r.kgPerHeadDay, items),
       conversion,
+      headCount: lot?.headCount ?? 0,
+      avgWeight: lot?.avgWeight ?? 0,
+      daysInFeedlot: daysBetween(r.effectiveFrom, now),
     };
   });
 }
@@ -300,27 +309,35 @@ export type EconomyRow = {
 // --- Precio de venta ($/kg vivo) por categoría ---
 // Prioridad: precio manual del dueño > última cotización automática de mercado > respaldo fijo.
 export type PriceOrigin = "MAG_CANUELAS" | "MANUAL" | "DEFAULT";
+// Qué fuente automática cubre cada categoría. CALF no tiene (Cañuelas no cotiza invernada).
+const SOURCE_BY_CAT: Partial<Record<CategoryKey, string>> = { STEER: "MAG_CANUELAS", COW: "MAG_CANUELAS" };
 export type SalePrices = {
   byCat: Record<CategoryKey, number>;
   origin: Record<CategoryKey, PriceOrigin>;
+  failing: Record<CategoryKey, boolean>; // la fuente automática de esa categoría falló en el último intento
   refDate: string | null; // fecha de la cotización de mercado más reciente usada
+  lastOkAt: string | null; // último scrapeo exitoso de la fuente
   source: { name: string; url: string };
 };
 
 async function _getSalePrices(): Promise<SalePrices> {
-  const [market, overrides] = await Promise.all([
+  const [market, overrides, statuses] = await Promise.all([
     prisma.marketPrice.findMany({ orderBy: { fetchedAt: "desc" } }),
     prisma.priceSetting.findMany(),
+    prisma.sourceStatus.findMany(),
   ]);
   const latestByCat = new Map<string, { price: number; refDate: Date }>();
   for (const m of market) {
     if (!latestByCat.has(m.category)) latestByCat.set(m.category, { price: m.pricePerKg, refDate: m.refDate });
   }
   const manual = new Map(overrides.map((o) => [o.category, o.pricePerKg]));
+  const statusBySource = new Map(statuses.map((s) => [s.source, s]));
 
   const byCat = {} as Record<CategoryKey, number>;
   const origin = {} as Record<CategoryKey, PriceOrigin>;
+  const failing = {} as Record<CategoryKey, boolean>;
   let refDate: Date | null = null;
+  let lastOkAt: Date | null = null;
   (Object.keys(CATEGORIES) as CategoryKey[]).forEach((c) => {
     if (manual.has(c)) {
       byCat[c] = manual.get(c)!;
@@ -334,15 +351,31 @@ async function _getSalePrices(): Promise<SalePrices> {
       byCat[c] = FALLBACK_PRICE[c];
       origin[c] = "DEFAULT";
     }
+    // Una categoría "falla" solo si su precio viene del mercado y esa fuente cayó en el último intento.
+    const src = SOURCE_BY_CAT[c];
+    const st = src ? statusBySource.get(src) : undefined;
+    failing[c] = origin[c] === "MAG_CANUELAS" && st?.ok === false;
+    if (st?.lastOkAt && (!lastOkAt || st.lastOkAt > lastOkAt)) lastOkAt = st.lastOkAt;
   });
   return {
     byCat,
     origin,
+    failing,
     refDate: refDate ? (refDate as Date).toISOString() : null,
+    lastOkAt: lastOkAt ? (lastOkAt as Date).toISOString() : null,
     source: { name: PRICE_SOURCE.name, url: PRICE_SOURCE.url },
   };
 }
 export const getSalePrices = () => cached("getSalePrices", _getSalePrices);
+
+// Alerta liviana para el layout: ¿hay alguna fuente automática caída ahora mismo?
+export type PriceAlert = { failing: boolean; sourceName: string; lastOkAt: string | null };
+async function _getPriceAlert(): Promise<PriceAlert> {
+  const bad = await prisma.sourceStatus.findFirst({ where: { ok: false } });
+  if (!bad) return { failing: false, sourceName: "", lastOkAt: null };
+  return { failing: true, sourceName: PRICE_SOURCE.name, lastOkAt: bad.lastOkAt ? bad.lastOkAt.toISOString() : null };
+}
+export const getPriceAlert = () => cached("getPriceAlert", _getPriceAlert);
 
 async function _getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; prices: SalePrices }> {
   const [lots, rations, treatments, prices] = await Promise.all([

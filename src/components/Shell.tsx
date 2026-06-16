@@ -48,10 +48,12 @@ export function Shell({
   children,
   user,
   badges = {},
+  priceAlert,
 }: {
   children: React.ReactNode;
   user: SessionUser;
   badges?: Record<string, number>;
+  priceAlert?: { failing: boolean; sourceName: string; lastOkAt: string | null };
 }) {
   const pathname = usePathname();
   const params = useSearchParams();
@@ -123,6 +125,18 @@ export function Shell({
 
       {/* Panel principal */}
       <div className="panel" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {priceAlert?.failing && pathname !== "/economia" && (
+          <Link
+            href="/economia"
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 22px", background: "var(--warn-bg, #fcf3e3)", color: "var(--warn-text, #8a5a12)", borderBottom: "1px solid var(--border)", fontSize: 13, textDecoration: "none" }}
+          >
+            <IconBell size={16} />
+            <span>
+              No pudimos actualizar el precio de hacienda ({priceAlert.sourceName}). Estás viendo el último valor guardado.
+            </span>
+            <span style={{ marginLeft: "auto", fontWeight: 500, whiteSpace: "nowrap" }}>Ver Economía →</span>
+          </Link>
+        )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 5, marginRight: 4 }}>

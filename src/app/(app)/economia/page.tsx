@@ -39,12 +39,14 @@ export default async function EconomiaPage({
     MANUAL: "fijado a mano",
     DEFAULT: "estimado (sin dato de mercado)",
   };
-  const refDateFmt = prices.refDate
-    ? new Date(prices.refDate).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" })
-    : null;
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" }) : null;
+  const refDateFmt = fmtDate(prices.refDate);
+  const lastOkFmt = fmtDate(prices.lastOkAt);
   const shownCats = (cat === "ALL" ? (["STEER", "COW", "CALF"] as const) : [headCat]).filter(
     (c) => prices.byCat[c] !== undefined,
   );
+  const anyFailing = shownCats.some((c) => prices.failing[c]);
 
   return (
     <>
@@ -79,6 +81,12 @@ export default async function EconomiaPage({
             {prices.source.name} ↗
           </a>
         </div>
+        {anyFailing && (
+          <div style={{ padding: "9px 14px", background: "var(--warn-bg, #fcf3e3)", color: "var(--warn-text, #8a5a12)", fontSize: 12, borderBottom: "1px solid var(--border)" }}>
+            ⚠ No pudimos traer la última cotización de {prices.source.name}. Estás viendo el último valor guardado
+            {lastOkFmt ? ` (actualizado por última vez el ${lastOkFmt})` : ""}. Podés fijar un precio a mano abajo.
+          </div>
+        )}
         <table className="data-table">
           <thead>
             <tr>
@@ -92,7 +100,11 @@ export default async function EconomiaPage({
               <tr key={c}>
                 <td><span className={`pill ${pillClass(c)}`}>{categoryLabel(c)}</span></td>
                 <td className="num" style={{ fontWeight: 500 }}>{formatARS(prices.byCat[c])}</td>
-                <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{ORIGIN_LABEL[prices.origin[c]]}</td>
+                <td style={{ fontSize: 12, color: prices.failing[c] ? "var(--warn-text, #8a5a12)" : "var(--text-secondary)" }}>
+                  {prices.failing[c]
+                    ? `⚠ No se pudo actualizar — mostrando último valor${lastOkFmt ? ` (${lastOkFmt})` : ""}`
+                    : ORIGIN_LABEL[prices.origin[c]]}
+                </td>
               </tr>
             ))}
           </tbody>

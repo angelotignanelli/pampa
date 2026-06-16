@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
     return Response.json({ ok: false, error: "No autorizado" }, { status: 401 });
   }
 
+  const now = new Date();
   try {
     const prices = await fetchCanuelasPrices();
     await prisma.marketPrice.createMany({
@@ -25,6 +26,11 @@ export async function GET(req: NextRequest) {
         refDate: p.refDate,
       })),
     });
+    await prisma.sourceStatus.upsert({
+      where: { source: PRICE_SOURCE.code },
+      update: { ok: true, lastOkAt: now, lastTryAt: now, message: null },
+      create: { source: PRICE_SOURCE.code, ok: true, lastOkAt: now, lastTryAt: now },
+    });
     clearFarmCache();
     return Response.json({
       ok: true,
@@ -33,7 +39,14 @@ export async function GET(req: NextRequest) {
       refDate: prices[0]?.refDate ?? null,
     });
   } catch (e) {
-    // No rompe: la app sigue usando el último precio guardado (o el respaldo).
-    return Response.json({ ok: false, error: e instanceof Error ? e.message : "Error desconocido" }, { status: 502 });
+    const message = e instanceof Error ? e.message : "Error desconocido";
+    // No rompe: marcamos la fuente como caída y la app sigue con el último valor guardado.
+    await prisma.sourceStatus.upsert({
+      where: { source: PRICE_SOURCE.code },
+      update: { ok: false, lastTryAt: now, message },
+      create: { source: PRICE_SOURCE.code, ok: false, lastTryAt: now, message },
+    });
+    clearFarmCache();
+    return Response.json({ ok: false, error: message }, { status: 502 });
   }
 }

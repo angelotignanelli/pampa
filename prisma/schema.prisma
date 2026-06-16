@@ -205,3 +205,14 @@ model PriceSetting {
   pricePerKg Int // ARS por kg vivo, fijado a mano por el dueño
   updatedAt  DateTime @updatedAt
 }
+
+// Salud de cada fuente automática de precios. El cron la actualiza en cada corrida.
+// Si ok=false, la app avisa al usuario que está viendo el último valor guardado.
+model SourceStatus {
+  id        String    @id @default(cuid())
+  source    String    @unique // MAG_CANUELAS
+  ok        Boolean   @default(true)
+  lastOkAt  DateTime? // último scrapeo exitoso
+  lastTryAt DateTime  @default(now())
+  message   String? // detalle del error cuando falla
+}
