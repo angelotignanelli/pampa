@@ -4,6 +4,7 @@ import { categoryLabel } from "@/lib/domain";
 import { pillClass } from "@/lib/cat";
 import { DataTable, type Column, type Row } from "@/components/DataTable";
 import { IconArrowLeft, IconPlus } from "@/components/icons";
+import { LinkSpinner } from "@/components/LinkSpinner";
 
 const COLUMNS: Column[] = [
   { key: "caravana", label: "Caravana" },
@@ -21,7 +22,7 @@ export default async function LotePesajesPage({ params }: { params: Promise<{ lo
     return (
       <div>
         <Link href="/pesajes" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>
-          <IconArrowLeft size={14} /> Volver a Pesajes
+          <IconArrowLeft size={14} /> Volver a Pesajes <LinkSpinner />
         </Link>
         <div className="empty">Lote no encontrado.</div>
       </div>

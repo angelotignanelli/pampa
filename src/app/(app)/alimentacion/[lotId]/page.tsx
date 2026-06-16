@@ -3,6 +3,7 @@ import { getRations } from "@/lib/queries";
 import { categoryLabel, formatARS, formatKg } from "@/lib/domain";
 import { pctFmt, gdpFmt, pillClass } from "@/lib/cat";
 import { IconArrowLeft, IconPlus } from "@/components/icons";
+import { LinkSpinner } from "@/components/LinkSpinner";
 
 const MIX_COLOR: Record<string, string> = { CARB: "#EF9F27", FIBER: "#97C459", PROTEIN: "#85B7EB" };
 
@@ -21,7 +22,7 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
     return (
       <div>
         <Link href="/alimentacion" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>
-          <IconArrowLeft size={14} /> Volver a Alimentación
+          <IconArrowLeft size={14} /> Volver a Alimentación <LinkSpinner />
         </Link>
         <div className="empty">Este lote no tiene receta cargada.</div>
       </div>

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { IconArrowLeft } from "@/components/icons";
+import { LinkSpinner } from "@/components/LinkSpinner";
+import { SubmitButton } from "@/components/SubmitButton";
 
 export const fieldStyle: React.CSSProperties = {
   height: 38,
@@ -34,7 +36,7 @@ export function FormPage({
   return (
     <div style={{ maxWidth: 480 }}>
       <Link href={backHref} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>
-        <IconArrowLeft size={14} /> Volver
+        <IconArrowLeft size={14} /> Volver <LinkSpinner />
       </Link>
       <h2 className="section-title">{title}</h2>
       <div className="card">{children}</div>
@@ -45,9 +47,7 @@ export function FormPage({
 export function FormActions({ submitLabel }: { submitLabel: string }) {
   return (
     <div style={{ marginTop: 6 }}>
-      <button type="submit" className="btn" style={{ justifyContent: "center", width: "100%" }}>
-        {submitLabel}
-      </button>
+      <SubmitButton label={submitLabel} />
     </div>
   );
 }

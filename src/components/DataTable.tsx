@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
 import { gdpFmt, pctFmt, pillClass } from "@/lib/cat";
@@ -63,6 +63,13 @@ export function DataTable({
   const router = useRouter();
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  const go = (href: string) => {
+    setPendingHref(href);
+    startTransition(() => router.push(href));
+  };
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -119,22 +126,27 @@ export function DataTable({
             </tr>
           </thead>
           <tbody>
-            {slice.map((r, i) => (
-              <tr
-                key={i}
-                onClick={r.href ? () => router.push(String(r.href)) : undefined}
-                style={r.href ? { cursor: "pointer" } : undefined}
-              >
-                {columns.map((c) => (
-                  <td key={c.key} className={c.align === "right" || c.fmt === "int" || c.fmt === "kg" || c.fmt === "ars" || c.fmt === "gdp" || c.fmt === "delta" || c.fmt === "pct" ? "num" : undefined}>
-                    {fmtCell(r[c.key], c.fmt)}
-                  </td>
-                ))}
-                {rows.some((rr) => rr.href) && (
-                  <td style={{ textAlign: "right", color: "var(--text-tertiary)" }}>{r.href ? <IconArrowRight size={15} /> : null}</td>
-                )}
-              </tr>
-            ))}
+            {slice.map((r, i) => {
+              const loading = isPending && pendingHref === r.href;
+              return (
+                <tr
+                  key={i}
+                  onClick={r.href && !isPending ? () => go(String(r.href)) : undefined}
+                  style={r.href ? { cursor: isPending ? "wait" : "pointer", opacity: isPending && !loading ? 0.5 : 1 } : undefined}
+                >
+                  {columns.map((c) => (
+                    <td key={c.key} className={c.align === "right" || c.fmt === "int" || c.fmt === "kg" || c.fmt === "ars" || c.fmt === "gdp" || c.fmt === "delta" || c.fmt === "pct" ? "num" : undefined}>
+                      {fmtCell(r[c.key], c.fmt)}
+                    </td>
+                  ))}
+                  {rows.some((rr) => rr.href) && (
+                    <td style={{ textAlign: "right", color: "var(--text-tertiary)" }}>
+                      {loading ? <span className="spin" style={{ color: "var(--olive)" }} /> : r.href ? <IconArrowRight size={15} /> : null}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
