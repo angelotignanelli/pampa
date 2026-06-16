@@ -23,7 +23,7 @@ export default async function SanidadPage({
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 className="section-title" style={{ margin: 0 }}>Sanidad</h2>
-        <Link href="/sanidad/nuevo" className="btn"><IconPlus size={14} /> Nuevo tratamiento</Link>
+        <Link href="/sanidad/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nuevo tratamiento</Link>
       </div>
 
       <div className="grid g3" style={{ marginBottom: 16 }}>
