@@ -136,16 +136,11 @@ a {
 .data-table tbody tr {
   border-top: 1px solid var(--border);
 }
+/* Columnas numéricas: dato alineado a la izquierda, a la misma altura que su encabezado. */
 .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-/* Columna numérica alineada a la izquierda (encabezado y dato a la misma altura). */
-.numl {
   text-align: left;
   font-variant-numeric: tabular-nums;
 }
-.data-table th.numl { text-align: left; }
 .pos { color: var(--green); }
 .warn { color: var(--warning-text); }
 

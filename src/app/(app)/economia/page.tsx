@@ -91,7 +91,7 @@ export default async function EconomiaPage({
           <thead>
             <tr>
               <th>Categoría</th>
-              <th className="numl">Precio / kg</th>
+              <th className="num">Precio / kg</th>
               <th>Origen</th>
               {editable && <th aria-label="" />}
             </tr>
@@ -100,7 +100,7 @@ export default async function EconomiaPage({
             {shownCats.map((c) => (
               <tr key={c}>
                 <td><span className={`pill ${pillClass(c)}`}>{categoryLabel(c)}</span></td>
-                <td className="numl" style={{ fontWeight: 500 }}>{formatARS(prices.byCat[c])}</td>
+                <td className="num" style={{ fontWeight: 500 }}>{formatARS(prices.byCat[c])}</td>
                 <td style={{ fontSize: 12, color: prices.failing[c] ? "var(--warn-text, #8a5a12)" : "var(--text-secondary)" }}>
                   {prices.failing[c]
                     ? `⚠ No se pudo actualizar — mostrando último valor${lastOkFmt ? ` (${lastOkFmt})` : ""}`
