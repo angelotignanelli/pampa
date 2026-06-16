@@ -59,19 +59,20 @@ export default async function ResumenPage({ searchParams }: { searchParams: Prom
         Buen día, {firstName} <span style={{ fontWeight: 400 }}>🌾</span>
       </p>
 
+      {/* Valor estimado: a ancho completo arriba, para que ambas columnas arranquen alineadas debajo */}
+      <div style={{ marginTop: 16 }}>
+        <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>Valor estimado del rodeo</p>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: "-0.02em" }}>{formatARS(totalValue)}</span>
+          <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            <strong style={{ color: "var(--green)" }}>{Math.round(health.pct)}%</strong> del rodeo en buen ritmo
+          </span>
+        </div>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: 16, marginTop: 18, alignItems: "start" }}>
         {/* Columna izquierda */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)" }}>Valor estimado del rodeo</p>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 44, fontWeight: 500, letterSpacing: "-0.02em" }}>{formatARS(totalValue)}</span>
-              <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                <strong style={{ color: "var(--green)" }}>{Math.round(health.pct)}%</strong> del rodeo en buen ritmo
-              </span>
-            </div>
-          </div>
-
           <div className="grid g3">
             <StatCard label="Cabezas" value={overview.headCount.toLocaleString("es-AR")} sub={`${overview.lotCount} ${overview.lotCount === 1 ? "lote" : "lotes"}`} />
             <StatCard label="GDP promedio" value={`${gdpFmt(overview.avgGdp)} kg/d`} sub="ganancia diaria" up />
