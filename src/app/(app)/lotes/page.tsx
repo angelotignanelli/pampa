@@ -21,7 +21,7 @@ export default async function LotesPage({
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/movimientos/nuevo" className="btn"><IconPlus size={14} /> Movimiento</Link>
           <Link href="/animales/nuevo" className="btn"><IconPlus size={14} /> Animal</Link>
-          <Link href="/lotes/nuevo" className="btn"><IconPlus size={14} /> Lote</Link>
+          <Link href="/lotes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Lote</Link>
         </div>
       </div>
 

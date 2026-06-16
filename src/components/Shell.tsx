@@ -57,7 +57,11 @@ export function Shell({
   const params = useSearchParams();
   const cat = params.get("cat") ?? "ALL";
 
-  const withCat = (href: string) => (cat === "ALL" ? href : `${href}?cat=${cat}`);
+  // Páginas que muestran todo el rodeo: no usan el filtro por categoría.
+  const NO_FILTER = ["/", "/lotes", "/socios"];
+  const showFilter = !NO_FILTER.includes(pathname);
+
+  const withCat = (href: string) => (cat === "ALL" || NO_FILTER.includes(href) ? href : `${href}?cat=${cat}`);
   const withFilter = (c: string) => (c === "ALL" ? pathname : `${pathname}?cat=${c}`);
 
   return (
@@ -135,21 +139,23 @@ export function Shell({
             <span style={{ marginLeft: "auto", fontWeight: 500, whiteSpace: "nowrap" }}>Ver Economía →</span>
           </Link>
         )}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 5, marginRight: 4 }}>
-              <IconFilter size={14} /> Categoría
-            </span>
-            {FILTERS.map((f) => (
-              <Link key={f.cat} href={withFilter(f.cat)} className={`chip${cat === f.cat ? " active" : ""}`}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                  {f.label}
-                  <LinkSpinner />
-                </span>
-              </Link>
-            ))}
+        {showFilter && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 5, marginRight: 4 }}>
+                <IconFilter size={14} /> Categoría
+              </span>
+              {FILTERS.map((f) => (
+                <Link key={f.cat} href={withFilter(f.cat)} className={`chip${cat === f.cat ? " active" : ""}`}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    {f.label}
+                    <LinkSpinner />
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <main style={{ flex: 1, minWidth: 0, padding: "24px 26px" }}>{children}</main>
       </div>
