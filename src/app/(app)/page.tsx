@@ -20,8 +20,9 @@ export default async function ResumenPage({ searchParams }: { searchParams: Prom
   ]);
 
   const firstName = user?.name.split(" ")[0] ?? "";
-  const price = economy.salePrice;
-  const totalValue = herdValue(lots);
+  const priceByCat = economy.prices.byCat;
+  const priceFor = (c: string) => priceByCat[c as keyof typeof priceByCat] ?? 0;
+  const totalValue = herdValue(lots, priceByCat);
 
   // Agrupación por categoría para el ritmo
   const byCat = new Map<string, RhythmItem>();
@@ -33,14 +34,14 @@ export default async function ResumenPage({ searchParams }: { searchParams: Prom
       color: CAT_COLOR[l.category] ?? "#999",
       cabezas: (prev?.cabezas ?? 0) + l.headCount,
       kg: (prev?.kg ?? 0) + kg,
-      value: (prev?.value ?? 0) + kg * price,
+      value: (prev?.value ?? 0) + kg * priceFor(l.category),
     });
   }
   const rhythm = CAT_ORDER.filter((c) => byCat.has(c)).map((c) => byCat.get(c)!);
 
   // Distribución de hacienda (por lote)
   const dist = lots
-    .map((l) => ({ name: l.name, category: l.category, cabezas: l.headCount, value: Math.round(l.headCount * l.avgWeight * price) }))
+    .map((l) => ({ name: l.name, category: l.category, cabezas: l.headCount, value: Math.round(l.headCount * l.avgWeight * priceFor(l.category)) }))
     .sort((a, b) => b.value - a.value);
   const distTotal = dist.reduce((a, d) => a + d.value, 0) || 1;
 

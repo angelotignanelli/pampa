@@ -39,6 +39,8 @@ async function main() {
   await prisma.lot.deleteMany();
   await prisma.paddock.deleteMany();
   await prisma.feedIngredient.deleteMany();
+  await prisma.marketPrice.deleteMany();
+  await prisma.priceSetting.deleteMany();
   await prisma.user.deleteMany();
   await prisma.farm.deleteMany();
 
@@ -180,6 +182,15 @@ async function main() {
       ],
     });
   }
+
+  // Cotización inicial (valores reales del Mercado de Cañuelas al 16/06/2026).
+  // El cron diario va sumando registros nuevos; estos sirven de arranque y de respaldo.
+  await prisma.marketPrice.createMany({
+    data: [
+      { source: "MAG_CANUELAS", category: "STEER", label: "Novillos", pricePerKg: 4468, refDate: new Date("2026-06-16") },
+      { source: "MAG_CANUELAS", category: "COW", label: "Vacas", pricePerKg: 2629, refDate: new Date("2026-06-16") },
+    ],
+  });
 
   const totals = {
     animales: await prisma.animal.count(),

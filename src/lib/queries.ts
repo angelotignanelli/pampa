@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import {
+  CATEGORIES,
   dailyGain,
   projectDateForTarget,
   dietDryMatterPct,
@@ -10,6 +11,7 @@ import {
   rationCostPerDay,
   type CategoryKey,
 } from "@/lib/domain";
+import { FALLBACK_PRICE, PRICE_SOURCE } from "@/lib/prices";
 
 export type CatFilter = CategoryKey | "ALL";
 
@@ -295,13 +297,59 @@ export type EconomyRow = {
   marginPerKg: number | null;
 };
 
-const SALE_PRICE_PER_KG = 1950;
+// --- Precio de venta ($/kg vivo) por categoría ---
+// Prioridad: precio manual del dueño > última cotización automática de mercado > respaldo fijo.
+export type PriceOrigin = "MAG_CANUELAS" | "MANUAL" | "DEFAULT";
+export type SalePrices = {
+  byCat: Record<CategoryKey, number>;
+  origin: Record<CategoryKey, PriceOrigin>;
+  refDate: string | null; // fecha de la cotización de mercado más reciente usada
+  source: { name: string; url: string };
+};
 
-async function _getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; salePrice: number }> {
-  const [lots, rations, treatments] = await Promise.all([
+async function _getSalePrices(): Promise<SalePrices> {
+  const [market, overrides] = await Promise.all([
+    prisma.marketPrice.findMany({ orderBy: { fetchedAt: "desc" } }),
+    prisma.priceSetting.findMany(),
+  ]);
+  const latestByCat = new Map<string, { price: number; refDate: Date }>();
+  for (const m of market) {
+    if (!latestByCat.has(m.category)) latestByCat.set(m.category, { price: m.pricePerKg, refDate: m.refDate });
+  }
+  const manual = new Map(overrides.map((o) => [o.category, o.pricePerKg]));
+
+  const byCat = {} as Record<CategoryKey, number>;
+  const origin = {} as Record<CategoryKey, PriceOrigin>;
+  let refDate: Date | null = null;
+  (Object.keys(CATEGORIES) as CategoryKey[]).forEach((c) => {
+    if (manual.has(c)) {
+      byCat[c] = manual.get(c)!;
+      origin[c] = "MANUAL";
+    } else if (latestByCat.has(c)) {
+      const m = latestByCat.get(c)!;
+      byCat[c] = m.price;
+      origin[c] = "MAG_CANUELAS";
+      if (!refDate || m.refDate > refDate) refDate = m.refDate;
+    } else {
+      byCat[c] = FALLBACK_PRICE[c];
+      origin[c] = "DEFAULT";
+    }
+  });
+  return {
+    byCat,
+    origin,
+    refDate: refDate ? (refDate as Date).toISOString() : null,
+    source: { name: PRICE_SOURCE.name, url: PRICE_SOURCE.url },
+  };
+}
+export const getSalePrices = () => cached("getSalePrices", _getSalePrices);
+
+async function _getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; prices: SalePrices }> {
+  const [lots, rations, treatments, prices] = await Promise.all([
     getLots(cat),
     getRations(cat),
     prisma.treatment.groupBy({ by: ["lotId"], _sum: { cost: true }, where: { lot: whereCategory(cat) } }),
+    getSalePrices(),
   ]);
   const rationByLot = new Map(rations.map((r) => [r.lotId, r]));
   const vetByLot = new Map(treatments.map((t) => [t.lotId, t._sum.cost ?? 0]));
@@ -312,8 +360,9 @@ async function _getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; salePr
     const feedCost = r ? r.costPerDay * periodDays * l.headCount : 0;
     const vetCost = vetByLot.get(l.id) ?? 0;
     const isFattening = l.category !== "COW";
+    const salePrice = prices.byCat[l.category as CategoryKey] ?? 0;
     const costPerKg = isFattening && r && l.gdp > 0 ? r.costPerDay / l.gdp : null;
-    const marginPerKg = costPerKg !== null ? SALE_PRICE_PER_KG - costPerKg : null;
+    const marginPerKg = costPerKg !== null ? salePrice - costPerKg : null;
     return {
       lotId: l.id,
       lotName: l.name,
@@ -325,7 +374,7 @@ async function _getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; salePr
     };
   });
 
-  return { rows, salePrice: SALE_PRICE_PER_KG };
+  return { rows, prices };
 }
 export const getEconomy = (cat: CatFilter) => cached(`getEconomy:${cat}`, () => _getEconomy(cat));
 
@@ -373,7 +422,6 @@ export type OwnerSplit = {
     parts: { ownerId: string; name: string; pct: number; kg: number }[];
   }[];
   totalKg: number;
-  salePrice: number;
 };
 
 async function _getOwnerSplit(cat: CatFilter): Promise<OwnerSplit> {
@@ -384,6 +432,7 @@ async function _getOwnerSplit(cat: CatFilter): Promise<OwnerSplit> {
     getEconomy(cat),
   ]);
   const marginPerKgByLot = new Map(economy.rows.map((r) => [r.lotId, r.marginPerKg]));
+  const priceByCat = economy.prices.byCat;
 
   const globalByOwner = new Map<string, number>();
   const lotShares = new Map<string, { ownerId: string; sharePct: number }[]>();
@@ -397,9 +446,11 @@ async function _getOwnerSplit(cat: CatFilter): Promise<OwnerSplit> {
   }
 
   const ownerKg = new Map<string, number>();
+  const ownerValue = new Map<string, number>();
   const ownerMargin = new Map<string, number>();
   const lotsOut = lots.map((l) => {
     const kg = l.headCount * l.avgWeight;
+    const valuePerKg = priceByCat[l.category as CategoryKey] ?? 0;
     const mpk = marginPerKgByLot.get(l.id) ?? null;
     const lotMargin = mpk !== null ? mpk * kg : 0; // vacas de cría: margen 0
     const custom = lotShares.has(l.id);
@@ -411,6 +462,7 @@ async function _getOwnerSplit(cat: CatFilter): Promise<OwnerSplit> {
         const o = owners.find((x) => x.id === e.ownerId);
         const f = e.sharePct / 100;
         ownerKg.set(e.ownerId, (ownerKg.get(e.ownerId) ?? 0) + kg * f);
+        ownerValue.set(e.ownerId, (ownerValue.get(e.ownerId) ?? 0) + kg * f * valuePerKg);
         ownerMargin.set(e.ownerId, (ownerMargin.get(e.ownerId) ?? 0) + lotMargin * f);
         return { ownerId: e.ownerId, name: o?.name ?? "—", pct: e.sharePct, kg: Math.round(kg * f) };
       })
@@ -423,11 +475,11 @@ async function _getOwnerSplit(cat: CatFilter): Promise<OwnerSplit> {
     name: o.name,
     globalPct: globalByOwner.has(o.id) ? globalByOwner.get(o.id)! : null,
     kg: Math.round(ownerKg.get(o.id) ?? 0),
-    valueShare: Math.round((ownerKg.get(o.id) ?? 0) * SALE_PRICE_PER_KG),
+    valueShare: Math.round(ownerValue.get(o.id) ?? 0),
     marginShare: Math.round(ownerMargin.get(o.id) ?? 0),
   }));
   const totalKg = Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight, 0));
-  return { owners: ownersOut, lots: lotsOut, totalKg, salePrice: SALE_PRICE_PER_KG };
+  return { owners: ownersOut, lots: lotsOut, totalKg };
 }
 export const getOwnerSplit = (cat: CatFilter) => cached(`getOwnerSplit:${cat}`, () => _getOwnerSplit(cat));
 
@@ -439,7 +491,7 @@ export function targetSaleDate(currentKg: number, gdp: number, targetKg = 450): 
   return projectDateForTarget(currentKg, targetKg, gdp, new Date("2026-06-01"));
 }
 
-/** Valor estimado del rodeo: Σ cabezas × peso prom × precio/kg. */
-export function herdValue(lots: LotMetrics[]): number {
-  return Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight * SALE_PRICE_PER_KG, 0));
+/** Valor estimado del rodeo: Σ cabezas × peso prom × precio/kg de su categoría. */
+export function herdValue(lots: LotMetrics[], priceByCat: Record<string, number>): number {
+  return Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight * (priceByCat[l.category] ?? 0), 0));
 }

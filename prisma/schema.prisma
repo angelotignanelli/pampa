@@ -183,3 +183,25 @@ model Movement {
   createdBy   User?    @relation(fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
 }
+
+// Cotización de hacienda traída automáticamente de una fuente pública (cron diario).
+// Un registro por categoría por corrida → queda histórico para graficar evolución.
+model MarketPrice {
+  id         String   @id @default(cuid())
+  source     String // MAG_CANUELAS
+  category   String // STEER | COW | CALF (normalizado a las categorías de la app)
+  label      String // etiqueta de la fuente, ej. "Novillos"
+  pricePerKg Int // ARS por kg vivo (promedio ponderado por cabezas)
+  refDate    DateTime // fecha de los precios según la fuente
+  fetchedAt  DateTime @default(now())
+
+  @@index([category, fetchedAt])
+}
+
+// Precio manual por categoría: si existe, pisa al automático del mercado.
+model PriceSetting {
+  id         String   @id @default(cuid())
+  category   String   @unique // STEER | COW | CALF
+  pricePerKg Int // ARS por kg vivo, fijado a mano por el dueño
+  updatedAt  DateTime @updatedAt
+}

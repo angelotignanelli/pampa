@@ -198,6 +198,30 @@ export async function setLotShares(formData: FormData) {
   redirect("/socios");
 }
 
+// Precio manual de venta por categoría: pisa al automático del mercado.
+// price <= 0 borra el override → vuelve a regir el precio automático.
+export async function setSalePrice(formData: FormData) {
+  const user = await requireUser();
+  if (!canManage(user.role)) throw new Error("No autorizado");
+  const category = str(formData.get("category"));
+  const price = Math.round(num(formData.get("pricePerKg")));
+  if (!category) throw new Error("Falta la categoría");
+
+  if (price > 0) {
+    await prisma.priceSetting.upsert({
+      where: { category },
+      update: { pricePerKg: price },
+      create: { category, pricePerKg: price },
+    });
+  } else {
+    await prisma.priceSetting.deleteMany({ where: { category } });
+  }
+  clearFarmCache();
+  revalidatePath("/economia");
+  revalidatePath("/");
+  redirect("/economia");
+}
+
 export async function createMovement(formData: FormData) {
   await requireUser();
   const lotId = str(formData.get("lotId"));
