@@ -53,12 +53,7 @@ export default async function SociosPage() {
               <tbody>
                 {split.lots.map((l) => (
                   <tr key={l.lotId}>
-                    <td style={{ fontWeight: 500 }}>
-                      {l.lotName}
-                      {l.custom && (
-                        <span className="pill" style={{ background: "var(--info-bg)", color: "var(--info-text)", marginLeft: 8 }}>personalizado</span>
-                      )}
-                    </td>
+                    <td style={{ fontWeight: 500 }}>{l.lotName}</td>
                     <td><span className={`pill ${pillClass(l.category)}`}>{categoryLabel(l.category)}</span></td>
                     <td className="num">{formatKg(l.kg)}</td>
                     <td>
@@ -86,7 +81,7 @@ export default async function SociosPage() {
           </div>
 
           <p style={{ margin: "12px 0 0", fontSize: 12, color: "var(--text-tertiary)" }}>
-            Cada lote usa la participación global salvo que tenga un reparto propio (“personalizado”). Editá un lote para fijar porcentajes específicos.
+            Cada lote usa la participación global salvo que tenga un reparto propio. Editá un lote para fijar porcentajes específicos.
           </p>
         </>
       )}

@@ -50,9 +50,9 @@ export default async function LotesPage({
                 <th>Lote</th>
                 <th>Categoría</th>
                 <th>Potrero</th>
-                <th className="num">Cab.</th>
-                <th className="num">Peso</th>
-                <th className="num">GDP</th>
+                <th className="numl">Cab.</th>
+                <th className="numl">Peso</th>
+                <th className="numl">GDP</th>
               </tr>
             </thead>
             <tbody>
@@ -63,9 +63,9 @@ export default async function LotesPage({
                     <td style={{ fontWeight: 500 }}>{l.name}</td>
                     <td><span className={`pill ${pillClass(l.category)}`}>{categoryLabel(l.category)}</span></td>
                     <td style={{ color: "var(--text-secondary)" }}>{l.paddock ?? "—"}</td>
-                    <td className="num">{l.headCount}</td>
-                    <td className="num">{formatKg(l.avgWeight)}</td>
-                    <td className={`num ${low ? "warn" : "pos"}`}>{gdpFmt(l.gdp)}</td>
+                    <td className="numl">{l.headCount}</td>
+                    <td className="numl">{formatKg(l.avgWeight)}</td>
+                    <td className={`numl ${low ? "warn" : "pos"}`}>{gdpFmt(l.gdp)}</td>
                   </tr>
                 );
               })}

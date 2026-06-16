@@ -15,9 +15,7 @@ import {
   IconUsers,
   IconLeaf,
   IconFilter,
-  IconSettings,
   IconBell,
-  IconHeadset,
   IconLogout,
 } from "@/components/icons";
 
@@ -150,11 +148,6 @@ export function Shell({
                 </span>
               </Link>
             ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button className="icon-btn" aria-label="Soporte"><IconHeadset size={17} /></button>
-            <button className="icon-btn" aria-label="Configuración"><IconSettings size={17} /></button>
-            <button className="icon-btn" aria-label="Notificaciones"><IconBell size={17} /></button>
           </div>
         </div>
 

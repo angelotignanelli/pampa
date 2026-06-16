@@ -2,9 +2,9 @@ import Link from "next/link";
 import { parseCat, pillClass } from "@/lib/cat";
 import { getEconomy, getOverview, getLots, getOwnerSplit } from "@/lib/queries";
 import { getSession, canManage } from "@/lib/auth";
-import { setSalePrice } from "@/lib/actions/crud";
-import { formatARS, formatKg, categoryLabel, CATEGORIES } from "@/lib/domain";
+import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
 import { IconBell, IconUsers } from "@/components/icons";
+import { SetPriceButton } from "@/components/SetPriceButton";
 
 function compactARS(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}M`;
@@ -91,20 +91,26 @@ export default async function EconomiaPage({
           <thead>
             <tr>
               <th>Categoría</th>
-              <th className="num">Precio / kg</th>
+              <th className="numl">Precio / kg</th>
               <th>Origen</th>
+              {editable && <th aria-label="" />}
             </tr>
           </thead>
           <tbody>
             {shownCats.map((c) => (
               <tr key={c}>
                 <td><span className={`pill ${pillClass(c)}`}>{categoryLabel(c)}</span></td>
-                <td className="num" style={{ fontWeight: 500 }}>{formatARS(prices.byCat[c])}</td>
+                <td className="numl" style={{ fontWeight: 500 }}>{formatARS(prices.byCat[c])}</td>
                 <td style={{ fontSize: 12, color: prices.failing[c] ? "var(--warn-text, #8a5a12)" : "var(--text-secondary)" }}>
                   {prices.failing[c]
                     ? `⚠ No se pudo actualizar — mostrando último valor${lastOkFmt ? ` (${lastOkFmt})` : ""}`
                     : ORIGIN_LABEL[prices.origin[c]]}
                 </td>
+                {editable && (
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <SetPriceButton category={c} currentPrice={prices.byCat[c]} isManual={prices.origin[c] === "MANUAL"} />
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -112,29 +118,8 @@ export default async function EconomiaPage({
         <div style={{ padding: "8px 14px", fontSize: 11, color: "var(--text-tertiary)", borderTop: "1px solid var(--border)" }}>
           {refDateFmt ? `Cotización del ${refDateFmt}, actualizada a diario en forma automática. ` : "Sin cotización automática todavía. "}
           Los terneros no cotizan en Cañuelas (mercado de invernada): se usa un valor estimado hasta sumar Rosgan.
+          {editable ? " Podés fijar un precio a mano por categoría (0 = volver al automático)." : ""}
         </div>
-        {editable && (
-          <details style={{ borderTop: "1px solid var(--border)" }}>
-            <summary style={{ padding: "8px 14px", fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
-              Fijar un precio a mano
-            </summary>
-            <form action={setSalePrice} style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: 10, padding: "0 14px 14px" }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                Categoría
-                <select name="category" defaultValue={headCat} style={{ height: 34, padding: "0 10px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 13 }}>
-                  {Object.values(CATEGORIES).map((c) => (
-                    <option key={c.key} value={c.key}>{c.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                Precio $/kg (0 = volver al automático)
-                <input name="pricePerKg" type="number" min="0" step="1" placeholder="ej. 4500" style={{ height: 34, width: 150, padding: "0 10px", borderRadius: 8, border: "1px solid var(--border-strong)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 13 }} />
-              </label>
-              <button type="submit" className="btn" style={{ height: 34 }}>Guardar</button>
-            </form>
-          </details>
-        )}
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
