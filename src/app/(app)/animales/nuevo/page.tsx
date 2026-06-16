@@ -1,22 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { createAnimals } from "@/lib/actions/crud";
 import { FormPage, Field, FormActions, fieldStyle } from "@/components/Form";
-import { categoryLabel } from "@/lib/domain";
+import { LotField } from "@/components/LotField";
 
 export default async function NuevosAnimalesPage() {
-  const lots = await prisma.lot.findMany({ orderBy: { name: "asc" } });
+  const [lots, paddocks] = await Promise.all([
+    prisma.lot.findMany({ orderBy: { name: "asc" } }),
+    prisma.paddock.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <FormPage title="Agregar animales" backHref="/lotes">
       <form action={createAnimals} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <Field label="Lote" hint="La categoría se toma del lote.">
-          <select name="lotId" required style={fieldStyle} defaultValue="">
-            <option value="" disabled>Elegí el lote…</option>
-            {lots.map((l) => (
-              <option key={l.id} value={l.id}>{l.name} ({categoryLabel(l.category)})</option>
-            ))}
-          </select>
-        </Field>
+        <LotField lots={lots} paddocks={paddocks} />
 
         <div style={{ display: "flex", gap: 12 }}>
           <Field label="Cantidad" hint="Cuántos animales cargar de una.">

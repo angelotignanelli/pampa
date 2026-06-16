@@ -70,21 +70,41 @@ export async function createLot(formData: FormData) {
 }
 
 export async function createAnimals(formData: FormData) {
-  await requireUser();
-  const lotId = str(formData.get("lotId"));
+  const user = await requireUser();
+  let lotId = str(formData.get("lotId"));
   const quantity = Math.round(num(formData.get("quantity")));
   const sex = str(formData.get("sex")) || null;
   const prefix = str(formData.get("tagPrefix"));
   const start = Math.max(1, Math.round(num(formData.get("startNumber")) || 1));
-  if (!lotId || quantity < 1) throw new Error("Datos de animales inválidos");
+  if (quantity < 1) throw new Error("Datos de animales inválidos");
   if (quantity > 2000) throw new Error("Máximo 2000 animales por carga");
 
-  const lot = await prisma.lot.findUnique({ where: { id: lotId } });
-  if (!lot) throw new Error("Lote no encontrado");
+  let category: string;
+  if (lotId === "__new__") {
+    // Crear el lote sobre la marcha (solo dueño/encargado).
+    if (!canManage(user.role)) throw new Error("Solo el dueño o el encargado puede crear lotes");
+    const name = str(formData.get("newLotName"));
+    category = str(formData.get("newLotCategory"));
+    if (!name || !category) throw new Error("Faltan datos del nuevo lote");
+    const lot = await prisma.lot.create({
+      data: {
+        name,
+        category,
+        farmId: await farmId(),
+        paddockId: str(formData.get("newLotPaddock")) || null,
+      },
+    });
+    lotId = lot.id;
+  } else {
+    if (!lotId) throw new Error("Elegí un lote");
+    const lot = await prisma.lot.findUnique({ where: { id: lotId } });
+    if (!lot) throw new Error("Lote no encontrado");
+    category = lot.category;
+  }
 
   const data = Array.from({ length: quantity }, (_, i) => ({
     tag: `${prefix}${String(start + i).padStart(4, "0")}`,
-    category: lot.category,
+    category,
     sex,
     lotId,
   }));
