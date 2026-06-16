@@ -28,6 +28,8 @@ function monthsAgo(n: number): Date {
 
 async function main() {
   // Limpieza (orden por dependencias)
+  await prisma.share.deleteMany();
+  await prisma.owner.deleteMany();
   await prisma.weighing.deleteMany();
   await prisma.rationItem.deleteMany();
   await prisma.ration.deleteMany();
@@ -158,10 +160,32 @@ async function main() {
     });
   }
 
+  // Socios y participaciones (demo)
+  const juan = await prisma.owner.create({ data: { name: "Juan Pérez", farmId: farm.id } });
+  const sofia = await prisma.owner.create({ data: { name: "Sofía Gómez", farmId: farm.id } });
+  // Participación global por defecto: Juan 60% / Sofía 40%
+  await prisma.share.createMany({
+    data: [
+      { ownerId: juan.id, lotId: null, sharePct: 60 },
+      { ownerId: sofia.id, lotId: null, sharePct: 40 },
+    ],
+  });
+  // Override por lote: en "Novillos 03" van 50/50
+  const novillos = await prisma.lot.findFirst({ where: { name: "Novillos 03" } });
+  if (novillos) {
+    await prisma.share.createMany({
+      data: [
+        { ownerId: juan.id, lotId: novillos.id, sharePct: 50 },
+        { ownerId: sofia.id, lotId: novillos.id, sharePct: 50 },
+      ],
+    });
+  }
+
   const totals = {
     animales: await prisma.animal.count(),
     pesajes: await prisma.weighing.count(),
     lotes: await prisma.lot.count(),
+    socios: await prisma.owner.count(),
   };
   console.log("Seed completo:", totals);
 }

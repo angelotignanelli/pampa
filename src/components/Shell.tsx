@@ -11,6 +11,7 @@ import {
   IconHealth,
   IconCash,
   IconList,
+  IconUsers,
   IconLeaf,
   IconFilter,
   IconSettings,
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/sanidad", label: "Sanidad", Icon: IconHealth, badge: "sanidad" },
   { href: "/economia", label: "Economía", Icon: IconCash, badge: "" },
   { href: "/lotes", label: "Lotes", Icon: IconList, badge: "" },
+  { href: "/socios", label: "Socios", Icon: IconUsers, badge: "" },
 ];
 
 const FILTERS = [

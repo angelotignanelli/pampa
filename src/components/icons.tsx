@@ -170,6 +170,24 @@ export function IconHeadset({ size = 16 }: IconProps) {
     </svg>
   );
 }
+export function IconEdit({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)} aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+    </svg>
+  );
+}
+export function IconUsers({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)} aria-hidden="true">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 5.5a3.2 3.2 0 0 1 0 6" />
+      <path d="M17 14.5a5.5 5.5 0 0 1 3.5 5.5" />
+    </svg>
+  );
+}
 export function IconArrowLeft({ size = 16 }: IconProps) {
   return (
     <svg {...base(size)} aria-hidden="true">

@@ -40,6 +40,26 @@ model Farm {
   users    User[]
   paddocks Paddock[]
   lots     Lot[]
+  owners   Owner[]
+}
+
+// Socio del campo. Su participación (Share) puede ser global (lotId null) o por lote.
+model Owner {
+  id        String   @id @default(cuid())
+  name      String
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id])
+  shares    Share[]
+  createdAt DateTime @default(now())
+}
+
+model Share {
+  id       String  @id @default(cuid())
+  ownerId  String
+  owner    Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  lotId    String? // null = participación global por defecto del establecimiento
+  lot      Lot?    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  sharePct Int // 0–100
 }
 
 model Paddock {
@@ -66,6 +86,7 @@ model Lot {
   rations    Ration[]
   treatments Treatment[]
   movements  Movement[]
+  shares     Share[]
 }
 
 model Animal {

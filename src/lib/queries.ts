@@ -350,6 +350,72 @@ async function _getHerdHealth(cat: CatFilter): Promise<HerdHealth> {
 }
 export const getHerdHealth = (cat: CatFilter) => cached(`getHerdHealth:${cat}`, () => _getHerdHealth(cat));
 
+export type OwnerSplit = {
+  owners: { id: string; name: string; globalPct: number | null; kg: number; valueShare: number }[];
+  lots: {
+    lotId: string;
+    lotName: string;
+    category: string;
+    kg: number;
+    custom: boolean;
+    parts: { ownerId: string; name: string; pct: number; kg: number }[];
+  }[];
+  totalKg: number;
+  salePrice: number;
+};
+
+async function _getOwnerSplit(): Promise<OwnerSplit> {
+  const [owners, lots, shares] = await Promise.all([
+    prisma.owner.findMany({ orderBy: { name: "asc" } }),
+    getLots("ALL"),
+    prisma.share.findMany(),
+  ]);
+
+  const globalByOwner = new Map<string, number>();
+  const lotShares = new Map<string, { ownerId: string; sharePct: number }[]>();
+  for (const s of shares) {
+    if (s.lotId === null) globalByOwner.set(s.ownerId, s.sharePct);
+    else {
+      const arr = lotShares.get(s.lotId) ?? [];
+      arr.push({ ownerId: s.ownerId, sharePct: s.sharePct });
+      lotShares.set(s.lotId, arr);
+    }
+  }
+
+  const ownerKg = new Map<string, number>();
+  const lotsOut = lots.map((l) => {
+    const kg = l.headCount * l.avgWeight;
+    const custom = lotShares.has(l.id);
+    const eff = custom
+      ? lotShares.get(l.id)!
+      : owners.map((o) => ({ ownerId: o.id, sharePct: globalByOwner.get(o.id) ?? 0 }));
+    const parts = eff
+      .map((e) => {
+        const o = owners.find((x) => x.id === e.ownerId);
+        const pkg = kg * (e.sharePct / 100);
+        ownerKg.set(e.ownerId, (ownerKg.get(e.ownerId) ?? 0) + pkg);
+        return { ownerId: e.ownerId, name: o?.name ?? "—", pct: e.sharePct, kg: Math.round(pkg) };
+      })
+      .filter((p) => p.pct > 0);
+    return { lotId: l.id, lotName: l.name, category: l.category, kg: Math.round(kg), custom, parts };
+  });
+
+  const ownersOut = owners.map((o) => ({
+    id: o.id,
+    name: o.name,
+    globalPct: globalByOwner.has(o.id) ? globalByOwner.get(o.id)! : null,
+    kg: Math.round(ownerKg.get(o.id) ?? 0),
+    valueShare: Math.round((ownerKg.get(o.id) ?? 0) * SALE_PRICE_PER_KG),
+  }));
+  const totalKg = Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight, 0));
+  return { owners: ownersOut, lots: lotsOut, totalKg, salePrice: SALE_PRICE_PER_KG };
+}
+export const getOwnerSplit = () => cached("getOwnerSplit", () => _getOwnerSplit());
+
+export async function getOwners() {
+  return prisma.owner.findMany({ orderBy: { name: "asc" } });
+}
+
 export function targetSaleDate(currentKg: number, gdp: number, targetKg = 450): Date | null {
   return projectDateForTarget(currentKg, targetKg, gdp, new Date("2026-06-01"));
 }

@@ -143,6 +143,41 @@ export async function createTreatment(formData: FormData) {
   redirect("/sanidad");
 }
 
+export async function createOwner(formData: FormData) {
+  const user = await requireUser();
+  if (!canManage(user.role)) throw new Error("No autorizado");
+  const name = str(formData.get("name"));
+  const globalPct = Math.round(num(formData.get("globalPct")));
+  if (!name) throw new Error("Falta el nombre del socio");
+
+  const owner = await prisma.owner.create({ data: { name, farmId: await farmId() } });
+  if (globalPct > 0) {
+    await prisma.share.create({ data: { ownerId: owner.id, lotId: null, sharePct: globalPct } });
+  }
+  clearFarmCache();
+  revalidatePath("/socios");
+  redirect("/socios");
+}
+
+// Define la participación por lote (override). Recibe share_<ownerId> por cada socio.
+export async function setLotShares(formData: FormData) {
+  const user = await requireUser();
+  if (!canManage(user.role)) throw new Error("No autorizado");
+  const lotId = str(formData.get("lotId"));
+  if (!lotId) throw new Error("Falta el lote");
+
+  const owners = await prisma.owner.findMany();
+  await prisma.share.deleteMany({ where: { lotId } });
+  const data = owners
+    .map((o) => ({ ownerId: o.id, lotId, sharePct: Math.round(num(formData.get(`share_${o.id}`))) }))
+    .filter((s) => s.sharePct > 0);
+  if (data.length > 0) await prisma.share.createMany({ data });
+
+  clearFarmCache();
+  revalidatePath("/socios");
+  redirect("/socios");
+}
+
 export async function createMovement(formData: FormData) {
   await requireUser();
   const lotId = str(formData.get("lotId"));
