@@ -150,8 +150,8 @@ export async function createRation(formData: FormData) {
   await requireUser();
   const lotId = str(formData.get("lotId"));
   const name = str(formData.get("name"));
-  const kgPerHeadDay = num(formData.get("kgPerHeadDay"));
-  if (!lotId || !name || kgPerHeadDay <= 0) throw new Error("Datos de ración inválidos");
+  const kgPerDay = num(formData.get("kgPerDay"));
+  if (!lotId || !name || kgPerDay <= 0) throw new Error("Datos de ración inválidos");
 
   const ingredients = await prisma.feedIngredient.findMany();
   const items = ingredients
@@ -168,7 +168,7 @@ export async function createRation(formData: FormData) {
     data: {
       name,
       lotId,
-      kgPerHeadDay,
+      kgPerDay,
       effectiveFrom,
       items: { create: items },
     },

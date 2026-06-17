@@ -32,7 +32,7 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
   const days = r.daysInFeedlot;
   const totalLotKg = Math.round(r.headCount * r.avgWeight); // kg vivos de todo el lote (último pesaje)
   // Ración del mixer a nivel lote (por día) y acumulada en el corral.
-  const racionKgDayLot = r.kgPerHeadDay * r.headCount;
+  const racionKgDayLot = r.kgPerDay;
   const items = r.items.map((it) => {
     const kgDayLot = it.kg * r.headCount; // kg de ese alimento por día, todo el lote
     return {

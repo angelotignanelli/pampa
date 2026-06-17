@@ -6,7 +6,7 @@ import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
 import { gdpFmt, pctFmt, pillClass } from "@/lib/cat";
 import { IconSearch, IconArrowLeft, IconArrowRight } from "@/components/icons";
 
-export type Fmt = "text" | "int" | "kg" | "ars" | "pct" | "gdp" | "delta" | "cat" | "date";
+export type Fmt = "text" | "int" | "kg" | "kg1" | "ars" | "pct" | "gdp" | "delta" | "cat" | "date";
 
 export type Column = {
   key: string;
@@ -25,6 +25,8 @@ function fmtCell(v: unknown, fmt: Fmt | undefined) {
       return Math.round(Number(v)).toLocaleString("es-AR");
     case "kg":
       return formatKg(Number(v));
+    case "kg1":
+      return formatKg(Number(v), 1);
     case "ars":
       return formatARS(Number(v));
     case "pct":
@@ -135,7 +137,7 @@ export function DataTable({
                   style={r.href ? { cursor: isPending ? "wait" : "pointer", opacity: isPending && !loading ? 0.5 : 1 } : undefined}
                 >
                   {columns.map((c) => (
-                    <td key={c.key} className={c.align === "right" || c.fmt === "int" || c.fmt === "kg" || c.fmt === "ars" || c.fmt === "gdp" || c.fmt === "delta" || c.fmt === "pct" ? "num" : undefined}>
+                    <td key={c.key} className={c.align === "right" || c.fmt === "int" || c.fmt === "kg" || c.fmt === "kg1" || c.fmt === "ars" || c.fmt === "gdp" || c.fmt === "delta" || c.fmt === "pct" ? "num" : undefined}>
                       {fmtCell(r[c.key], c.fmt)}
                     </td>
                   ))}

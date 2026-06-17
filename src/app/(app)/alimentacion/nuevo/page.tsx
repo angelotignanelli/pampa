@@ -24,8 +24,8 @@ export default async function NuevaRacionPage() {
         <Field label="Nombre de la receta">
           <input name="name" required placeholder="Mixer engorde" style={fieldStyle} />
         </Field>
-        <Field label="Ración por cabeza por día (kg)">
-          <input name="kgPerHeadDay" type="number" step="0.1" min="0" required placeholder="9.5" style={fieldStyle} />
+        <Field label="Cantidad de ración por día (kg)" hint="Total de mezcla que se le da al lote por día. El kg por cabeza se calcula con la cantidad de animales.">
+          <input name="kgPerDay" type="number" step="1" min="0" required placeholder="228" style={fieldStyle} />
         </Field>
         <Field label="Vigente desde">
           <input name="effectiveFrom" type="date" defaultValue={today} style={fieldStyle} />
@@ -33,7 +33,7 @@ export default async function NuevaRacionPage() {
 
         <div>
           <p style={{ margin: "4px 0 8px", fontSize: 12, color: "var(--text-secondary)" }}>
-            Composición (% sobre la mezcla)
+            Composición (% sobre la mezcla) — queda fija hasta que cargues una receta nueva
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {ingredients.map((ing) => (

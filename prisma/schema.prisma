@@ -184,7 +184,7 @@ model Ration {
   name           String
   effectiveFrom  DateTime
   effectiveTo    DateTime? // null = vigente; se completa cuando se carga una ración nueva para el lote
-  kgPerHeadDay   Float // kg de mezcla por cabeza por día
+  kgPerDay       Float // kg totales de mezcla entregados por día al lote (el kg/cabeza se calcula)
   lotId          String
   lot            Lot          @relation(fields: [lotId], references: [id])
   createdById    String?

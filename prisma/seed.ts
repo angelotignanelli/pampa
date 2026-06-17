@@ -92,12 +92,13 @@ async function main() {
       data: { name: def.name, category: def.category, farmId: farm.id, paddockId: def.paddockId },
     });
 
-    // Ración del lote
+    // Ración del lote: se carga el TOTAL de mezcla por día (kg/cabeza × cabezas).
+    const perHead = def.category === "COW" ? 7.5 : def.category === "CALF" ? 6.0 : 9.5;
     const ration = await prisma.ration.create({
       data: {
         name: `Mixer ${def.name}`,
         effectiveFrom: monthsAgo(3),
-        kgPerHeadDay: def.category === "COW" ? 7.5 : def.category === "CALF" ? 6.0 : 9.5,
+        kgPerDay: perHead * def.count,
         lotId: lot.id,
         createdById: owner.id,
       },

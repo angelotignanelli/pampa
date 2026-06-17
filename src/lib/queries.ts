@@ -150,7 +150,8 @@ export type RationView = {
   lotName: string;
   category: string;
   name: string;
-  kgPerHeadDay: number;
+  kgPerDay: number; // total de mezcla por día para el lote (lo que se carga)
+  kgPerHeadDay: number; // calculado: kgPerDay ÷ cabezas
   // Por ingrediente: % de la mezcla, kg/cabeza/día y $/kg del insumo.
   items: { name: string; type: string; percentage: number; kg: number; costPerKg: number }[];
   dryMatterPct: number;
@@ -159,6 +160,7 @@ export type RationView = {
   dmiBodyWeightPct: number; // consumo MS como % del peso vivo
   costPerDay: number; // $ alimento por animal por día
   conversion: number;
+  gdp: number; // ganancia diaria de peso del lote (kg/día)
   headCount: number;
   avgWeight: number; // peso promedio por animal (último pesaje)
   daysInFeedlot: number; // días desde que arrancó la ración (corral)
@@ -179,19 +181,22 @@ async function _getRations(cat: CatFilter): Promise<RationView[]> {
   const now = new Date();
 
   return rations.map((r) => {
+    const lot = lotById.get(r.lotId);
+    const headCount = lot?.headCount ?? 0;
+    // El kg por cabeza se calcula a partir del total entregado y la cantidad de animales.
+    const kgPerHeadDay = headCount > 0 ? r.kgPerDay / headCount : 0;
     const items = r.items.map((it) => ({
       name: it.ingredient.name,
       type: it.ingredient.type,
       percentage: it.percentage,
-      kg: Math.round((it.percentage / 100) * r.kgPerHeadDay * 100) / 100,
+      kg: Math.round((it.percentage / 100) * kgPerHeadDay * 100) / 100,
       dryMatterPct: it.ingredient.dryMatterPct,
       proteinPct: it.ingredient.proteinPct,
       costPerKg: it.ingredient.costPerKg,
     }));
     const dm = dietDryMatterPct(items);
     const protein = dietProteinPct(items);
-    const dmi = dryMatterIntake(r.kgPerHeadDay, dm);
-    const lot = lotById.get(r.lotId);
+    const dmi = dryMatterIntake(kgPerHeadDay, dm);
     const dmiBw = lot ? dmiAsBodyWeightPct(dmi, lot.avgWeight) : 0;
     const gainPerDay = lot ? lot.gdp : 0;
     const conversion = gainPerDay > 0 ? feedConversion(dmi, gainPerDay) : 0;
@@ -201,15 +206,17 @@ async function _getRations(cat: CatFilter): Promise<RationView[]> {
       lotName: r.lot.name,
       category: r.lot.category,
       name: r.name,
-      kgPerHeadDay: r.kgPerHeadDay,
+      kgPerDay: r.kgPerDay,
+      kgPerHeadDay,
       items: items.map(({ name, type, percentage, kg, costPerKg }) => ({ name, type, percentage, kg, costPerKg })),
       dryMatterPct: dm,
       proteinPct: protein,
       dmiPerDay: dmi,
       dmiBodyWeightPct: dmiBw,
-      costPerDay: rationCostPerDay(r.kgPerHeadDay, items),
+      costPerDay: rationCostPerDay(kgPerHeadDay, items),
       conversion,
-      headCount: lot?.headCount ?? 0,
+      gdp: gainPerDay,
+      headCount,
       avgWeight: lot?.avgWeight ?? 0,
       daysInFeedlot: daysBetween(r.effectiveFrom, now),
       effectiveFrom: r.effectiveFrom.toISOString(),
