@@ -17,8 +17,10 @@ const COLUMNS: Column[] = [
   { key: "gdp", label: "GDP", fmt: "gdp", align: "right" },
 ];
 
-export default async function AlimentacionPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
-  const cat = parseCat((await searchParams).cat);
+export default async function AlimentacionPage({ searchParams }: { searchParams: Promise<{ cat?: string; season?: string }> }) {
+  const sp = await searchParams;
+  const cat = parseCat(sp.cat);
+  const readOnly = !!sp.season;
   const rations = await getRations(cat);
 
   // Consumo acumulado por alimento (kg entregados desde que arrancó cada receta vigente).
@@ -54,7 +56,9 @@ export default async function AlimentacionPage({ searchParams }: { searchParams:
             {rations.length} {rations.length === 1 ? "receta vigente" : "recetas vigentes"} · elegí un lote para ver la composición del mixer
           </p>
         </div>
-        <Link href="/alimentacion/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nueva receta</Link>
+        {!readOnly && (
+          <Link href="/alimentacion/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nueva receta</Link>
+        )}
       </div>
 
       <CatFilter />

@@ -30,6 +30,7 @@ function SectionCard({ title, action, children }: { title: string; action?: Reac
 export default async function SanidadPage({ searchParams }: { searchParams: Promise<{ cat?: string; season?: string }> }) {
   const sp = await searchParams;
   const cat = parseCat(sp.cat);
+  const readOnly = !!sp.season;
   const [treatments, events, expenses] = await Promise.all([
     getTreatments(cat, sp.season),
     getHerdEvents(cat, sp.season),
@@ -42,11 +43,13 @@ export default async function SanidadPage({ searchParams }: { searchParams: Prom
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <h2 className="section-title" style={{ margin: 0 }}>Sanidad y manejo</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Link href="/sanidad/evento/nuevo" className="btn"><IconPlus size={14} /> Evento</Link>
-          <Link href="/sanidad/gasto/nuevo" className="btn"><IconPlus size={14} /> Gasto</Link>
-          <Link href="/sanidad/nuevo" className="btn btn-primary"><IconPlus size={14} /> Tratamiento</Link>
-        </div>
+        {!readOnly && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href="/sanidad/evento/nuevo" className="btn"><IconPlus size={14} /> Evento</Link>
+            <Link href="/sanidad/gasto/nuevo" className="btn"><IconPlus size={14} /> Gasto</Link>
+            <Link href="/sanidad/nuevo" className="btn btn-primary"><IconPlus size={14} /> Tratamiento</Link>
+          </div>
+        )}
       </div>
 
       <CatFilter />

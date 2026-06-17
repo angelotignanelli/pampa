@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { parseCat, pillClass } from "@/lib/cat";
-import { getEconomy, getOverview, getLots, getOwnerSplit } from "@/lib/queries";
+import { getEconomy, getOverview, getLots, getOwnerSplit, getSeasonView, type SeasonView } from "@/lib/queries";
 import { getSession, canManage } from "@/lib/auth";
 import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
 import { IconBell, IconUsers } from "@/components/icons";
@@ -13,12 +13,96 @@ function compactARS(n: number): string {
   return formatARS(n);
 }
 
+function FrozenEconomy({ view }: { view: SeasonView | null }) {
+  if (!view) {
+    return (
+      <>
+        <h2 className="section-title">Economía y rentabilidad</h2>
+        <div className="empty">Campaña no encontrada.</div>
+      </>
+    );
+  }
+  if (!view.close) {
+    return (
+      <>
+        <h2 className="section-title">Economía y rentabilidad</h2>
+        <div className="card" style={{ padding: 18, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+          <strong>{view.name}</strong> todavía no está cerrada. El balance congelado (valor, costos, margen y reparto por
+          socio, con los precios de ese momento) aparece cuando cerrás la campaña desde{" "}
+          <Link href="/historico" style={{ color: "var(--olive)" }}>Histórico</Link>.
+        </div>
+      </>
+    );
+  }
+  const c = view.close;
+  const cats: Array<"STEER" | "COW" | "CALF"> = ["STEER", "COW", "CALF"];
+  return (
+    <>
+      <h2 className="section-title">Economía y rentabilidad</h2>
+      <p style={{ margin: "-8px 0 16px", fontSize: 13, color: "var(--text-tertiary)" }}>
+        Balance congelado de <strong style={{ color: "var(--text-secondary)" }}>{view.name}</strong> — números del cierre, no se recalculan.
+      </p>
+
+      <div className="grid g4" style={{ marginBottom: 16 }}>
+        <div className="mcard"><p className="label">Valor del rodeo</p><p className="value" style={{ fontSize: 20 }}>{compactARS(c.herdValue)}</p></div>
+        <div className="mcard"><p className="label">Margen repartible</p><p className="value pos" style={{ fontSize: 20 }}>{compactARS(c.margin)}</p></div>
+        <div className="mcard"><p className="label">Cabezas</p><p className="value" style={{ fontSize: 20 }}>{c.headCount.toLocaleString("es-AR")}</p><p className="sub">al cierre</p></div>
+        <div className="mcard"><p className="label">Kg vivos</p><p className="value" style={{ fontSize: 20 }}>{formatKg(c.totalKg)}</p></div>
+        <div className="mcard"><p className="label">Ventas</p><p className="value" style={{ fontSize: 20 }}>{c.salesQty} cab</p><p className="sub">{c.salesAmount > 0 ? compactARS(c.salesAmount) : "—"}</p></div>
+        <div className="mcard"><p className="label">Compras</p><p className="value" style={{ fontSize: 20 }}>{c.purchasesQty} cab</p><p className="sub">{c.purchasesAmount > 0 ? compactARS(c.purchasesAmount) : "—"}</p></div>
+        <div className="mcard"><p className="label">Costo alimentación</p><p className="value" style={{ fontSize: 20 }}>{compactARS(c.feedCost)}</p></div>
+        <div className="mcard"><p className="label">Costo veterinario</p><p className="value" style={{ fontSize: 20 }}>{compactARS(c.vetCost)}</p></div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 500 }}>Precios congelados · $/kg vivo</div>
+        <table className="data-table">
+          <thead><tr><th>Categoría</th><th className="num">Precio / kg</th></tr></thead>
+          <tbody>
+            {cats.filter((k) => c.prices[k] !== undefined).map((k) => (
+              <tr key={k}>
+                <td><span className={`pill ${pillClass(k)}`}>{categoryLabel(k)}</span></td>
+                <td className="num" style={{ fontWeight: 500 }}>{formatARS(c.prices[k])}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {c.ownerSplit.length > 0 && (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <IconUsers size={15} /> Reparto por socio (congelado)
+          </div>
+          <table className="data-table">
+            <thead><tr><th>Socio</th><th className="num">Kg de carne</th><th className="num">Valor</th><th className="num">Margen</th></tr></thead>
+            <tbody>
+              {c.ownerSplit.map((o) => (
+                <tr key={o.name}>
+                  <td style={{ fontWeight: 500 }}>{o.name}</td>
+                  <td className="num">{formatKg(o.kg)}</td>
+                  <td className="num">{formatARS(o.value)}</td>
+                  <td className="num pos">{formatARS(o.margin)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default async function EconomiaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string }>;
+  searchParams: Promise<{ cat?: string; season?: string }>;
 }) {
-  const cat = parseCat((await searchParams).cat);
+  const sp = await searchParams;
+  if (sp.season) {
+    return <FrozenEconomy view={await getSeasonView(sp.season)} />;
+  }
+  const cat = parseCat(sp.cat);
   const [{ rows, prices }, overview, lots, split, user] = await Promise.all([
     getEconomy(cat),
     getOverview(cat),

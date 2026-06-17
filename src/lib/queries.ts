@@ -706,6 +706,38 @@ async function _getSeasonsWithSummary(): Promise<SeasonSummary[]> {
 }
 export const getSeasonsWithSummary = () => cached("getSeasonsWithSummary", _getSeasonsWithSummary);
 
+// Una campaña + su cierre congelado (para mostrar el balance en Economía/Resumen).
+export type SeasonView = { id: string; name: string; isCurrent: boolean; closed: boolean; close: SeasonClose | null };
+async function _getSeasonView(seasonId: string): Promise<SeasonView | null> {
+  const s = await prisma.season.findUnique({ where: { id: seasonId }, include: { close: true } });
+  if (!s) return null;
+  const c = s.close;
+  return {
+    id: s.id,
+    name: s.name,
+    isCurrent: s.isCurrent,
+    closed: s.closedAt !== null,
+    close: c
+      ? {
+          closedAt: c.closedAt.toISOString(),
+          headCount: c.headCount,
+          totalKg: c.totalKg,
+          herdValue: c.herdValue,
+          salesQty: c.salesQty,
+          salesAmount: c.salesAmount,
+          purchasesQty: c.purchasesQty,
+          purchasesAmount: c.purchasesAmount,
+          feedCost: c.feedCost,
+          vetCost: c.vetCost,
+          margin: c.margin,
+          prices: c.prices as Record<string, number>,
+          ownerSplit: c.ownerSplit as unknown as OwnerSplitFrozen[],
+        }
+      : null,
+  };
+}
+export const getSeasonView = (seasonId: string) => cached(`getSeasonView:${seasonId}`, () => _getSeasonView(seasonId));
+
 // Lista liviana de campañas para el selector global del topbar.
 export type SeasonOption = { id: string; name: string; isCurrent: boolean; closed: boolean };
 async function _getSeasonsList(): Promise<SeasonOption[]> {

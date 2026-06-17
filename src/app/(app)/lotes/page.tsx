@@ -11,6 +11,7 @@ export default async function LotesPage({
 }) {
   const sp = await searchParams;
   const cat = parseCat(sp.cat);
+  const readOnly = !!sp.season;
   const lots = await getLots(cat, sp.season);
   const headCount = lots.reduce((a, l) => a + l.headCount, 0);
   const paddocks = new Set(lots.map((l) => l.paddock).filter(Boolean)).size;
@@ -19,12 +20,14 @@ export default async function LotesPage({
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 className="section-title" style={{ margin: 0 }}>Lotes y hacienda</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Link href="/movimientos/nuevo" className="btn"><IconPlus size={14} /> Movimiento</Link>
-          <Link href="/egresos/nuevo" className="btn"><IconArrowRight size={14} /> Egreso</Link>
-          <Link href="/animales/nuevo" className="btn"><IconPlus size={14} /> Animal</Link>
-          <Link href="/lotes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Lote</Link>
-        </div>
+        {!readOnly && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href="/movimientos/nuevo" className="btn"><IconPlus size={14} /> Movimiento</Link>
+            <Link href="/egresos/nuevo" className="btn"><IconArrowRight size={14} /> Egreso</Link>
+            <Link href="/animales/nuevo" className="btn"><IconPlus size={14} /> Animal</Link>
+            <Link href="/lotes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Lote</Link>
+          </div>
+        )}
       </div>
 
       <div className="grid g3" style={{ marginBottom: 16 }}>

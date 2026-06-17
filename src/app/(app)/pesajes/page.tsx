@@ -17,6 +17,7 @@ const COLUMNS: Column[] = [
 export default async function PesajesPage({ searchParams }: { searchParams: Promise<{ cat?: string; season?: string }> }) {
   const sp = await searchParams;
   const cat = parseCat(sp.cat);
+  const readOnly = !!sp.season; // viendo una campaña pasada
   const lots = await getLots(cat, sp.season);
 
   const rows: Row[] = lots.map((l) => ({
@@ -40,10 +41,12 @@ export default async function PesajesPage({ searchParams }: { searchParams: Prom
             {lots.length} {lots.length === 1 ? "lote" : "lotes"} · {totalHead.toLocaleString("es-AR")} cabezas · elegí un lote para ver el detalle por animal
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Link href="/pesajes/grupal" className="btn"><IconPlus size={14} /> Pesaje grupal</Link>
-          <Link href="/pesajes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nuevo pesaje</Link>
-        </div>
+        {!readOnly && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link href="/pesajes/grupal" className="btn"><IconPlus size={14} /> Pesaje grupal</Link>
+            <Link href="/pesajes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nuevo pesaje</Link>
+          </div>
+        )}
       </div>
 
       <CatFilter />
