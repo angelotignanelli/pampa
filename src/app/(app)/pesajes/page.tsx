@@ -38,7 +38,10 @@ export default async function PesajesPage({ searchParams }: { searchParams: Prom
             {lots.length} {lots.length === 1 ? "lote" : "lotes"} · {totalHead.toLocaleString("es-AR")} cabezas · elegí un lote para ver el detalle por animal
           </p>
         </div>
-        <Link href="/pesajes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nuevo pesaje</Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/pesajes/grupal" className="btn"><IconPlus size={14} /> Pesaje grupal</Link>
+          <Link href="/pesajes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nuevo pesaje</Link>
+        </div>
       </div>
 
       <DataTable columns={COLUMNS} rows={rows} searchKeys={["lote"]} searchPlaceholder="Buscar lote…" pageSize={12} emptyText="No hay lotes para esta categoría." />

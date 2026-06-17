@@ -49,6 +49,37 @@ export async function createWeighing(formData: FormData) {
   redirect("/pesajes");
 }
 
+// Pesaje grupal: se carga el total de kg de un grupo y se reparte el promedio a cada animal.
+// Útil cuando se pesa la tropa junta (ej. 54 machos = 15.660 kg → 290 kg c/u).
+export async function createGroupWeighing(formData: FormData) {
+  const user = await requireUser();
+  const lotId = str(formData.get("lotId"));
+  const sex = str(formData.get("sex")); // "" (todos) | M | F
+  const quantity = Math.round(num(formData.get("quantity")));
+  const totalKg = num(formData.get("totalKg"));
+  if (!lotId || quantity < 1 || totalKg <= 0) throw new Error("Datos de pesaje grupal inválidos");
+
+  const animals = await prisma.animal.findMany({
+    where: { lotId, status: "ACTIVE", ...(sex ? { sex } : {}) },
+    orderBy: { tag: "asc" },
+    take: quantity,
+    select: { id: true },
+  });
+  if (animals.length < quantity) {
+    throw new Error(`Solo hay ${animals.length} animales activos que coinciden con el filtro`);
+  }
+
+  const avg = Math.round((totalKg / quantity) * 10) / 10; // promedio con 1 decimal
+  const when = date(formData.get("date"));
+  await prisma.weighing.createMany({
+    data: animals.map((a) => ({ animalId: a.id, lotId, weightKg: avg, date: when, createdById: user.id })),
+  });
+  clearFarmCache();
+  revalidatePath("/pesajes");
+  revalidatePath("/");
+  redirect("/pesajes");
+}
+
 export async function createLot(formData: FormData) {
   const user = await requireUser();
   if (!canManage(user.role)) throw new Error("No autorizado");
