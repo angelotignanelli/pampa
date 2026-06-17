@@ -5,6 +5,7 @@ import { getSession, canManage } from "@/lib/auth";
 import { formatARS, formatKg, categoryLabel } from "@/lib/domain";
 import { IconBell, IconUsers } from "@/components/icons";
 import { SetPriceButton } from "@/components/SetPriceButton";
+import { CatFilter } from "@/components/CatFilter";
 
 function compactARS(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}M`;
@@ -51,6 +52,8 @@ export default async function EconomiaPage({
   return (
     <>
       <h2 className="section-title">Economía y rentabilidad</h2>
+
+      <CatFilter />
 
       <div className="grid g4" style={{ marginBottom: 16 }}>
         <div className="mcard">

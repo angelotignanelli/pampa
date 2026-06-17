@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { logout } from "@/lib/actions/auth";
 import { LinkSpinner } from "@/components/LinkSpinner";
 import type { SessionUser } from "@/lib/auth";
@@ -14,13 +14,13 @@ import {
   IconList,
   IconUsers,
   IconLeaf,
-  IconFilter,
   IconBell,
   IconHistory,
   IconLogout,
 } from "@/components/icons";
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Dueño", MANAGER: "Encargado", WORKER: "Peón" };
+type SeasonOption = { id: string; name: string; isCurrent: boolean; closed: boolean };
 
 const NAV = [
   { href: "/", label: "Resumen", Icon: IconDashboard, badge: "" },
@@ -33,38 +33,59 @@ const NAV = [
   { href: "/historico", label: "Histórico", Icon: IconHistory, badge: "" },
 ];
 
-const FILTERS = [
-  { cat: "ALL", label: "Todos" },
-  { cat: "STEER", label: "Novillos" },
-  { cat: "COW", label: "Vacas" },
-  { cat: "CALF", label: "Terneros" },
-];
-
 function initials(name: string): string {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
 }
+
+const selectStyle: React.CSSProperties = {
+  height: 32,
+  padding: "0 28px 0 10px",
+  borderRadius: 9,
+  border: "1px solid var(--border-strong)",
+  background: "var(--bg-primary)",
+  color: "var(--text-primary)",
+  fontSize: 13,
+  fontWeight: 500,
+  appearance: "none",
+  cursor: "pointer",
+};
 
 export function Shell({
   children,
   user,
   badges = {},
   priceAlert,
+  seasons = [],
 }: {
   children: React.ReactNode;
   user: SessionUser;
   badges?: Record<string, number>;
   priceAlert?: { failing: boolean; sourceName: string; lastOkAt: string | null };
+  seasons?: SeasonOption[];
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const params = useSearchParams();
-  const cat = params.get("cat") ?? "ALL";
 
-  // Páginas que muestran todo el rodeo: no usan el filtro por categoría.
-  const NO_FILTER = ["/", "/lotes", "/socios", "/historico"];
-  const showFilter = !NO_FILTER.includes(pathname);
+  // Campaña = contexto global. Por defecto, la actual.
+  const currentSeason = seasons.find((s) => s.isCurrent) ?? seasons[0];
+  const selectedSeasonId = params.get("season") ?? currentSeason?.id ?? "";
+  const selectedSeason = seasons.find((s) => s.id === selectedSeasonId);
+  const isPastSeason = selectedSeason ? !selectedSeason.isCurrent : false;
 
-  const withCat = (href: string) => (cat === "ALL" || NO_FILTER.includes(href) ? href : `${href}?cat=${cat}`);
-  const withFilter = (c: string) => (c === "ALL" ? pathname : `${pathname}?cat=${c}`);
+  // El nav preserva la campaña elegida (no la categoría, que es un filtro in-page).
+  const withSeason = (href: string) => {
+    if (!selectedSeasonId || selectedSeason?.isCurrent) return href;
+    return `${href}?season=${selectedSeasonId}`;
+  };
+  const onSeasonChange = (id: string) => {
+    const isCurr = seasons.find((s) => s.id === id)?.isCurrent;
+    const sp = new URLSearchParams(params.toString());
+    if (isCurr) sp.delete("season");
+    else sp.set("season", id);
+    const qs = sp.toString();
+    router.push(qs ? `${pathname}?${qs}` : pathname);
+  };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", gap: 14, padding: 14, background: "var(--bg-tertiary)" }}>
@@ -82,7 +103,7 @@ export function Shell({
             const active = pathname === href;
             const count = badge ? badges[badge] : 0;
             return (
-              <Link key={href} href={withCat(href)} className={`nav-item${active ? " active" : ""}`}>
+              <Link key={href} href={withSeason(href)} className={`nav-item${active ? " active" : ""}`}>
                 <Icon size={17} />
                 {label}
                 <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
@@ -141,21 +162,33 @@ export function Shell({
             <span style={{ marginLeft: "auto", fontWeight: 500, whiteSpace: "nowrap" }}>Ver Economía →</span>
           </Link>
         )}
-        {showFilter && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 5, marginRight: 4 }}>
-                <IconFilter size={14} /> Categoría
+        {seasons.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <IconHistory size={14} /> Campaña
               </span>
-              {FILTERS.map((f) => (
-                <Link key={f.cat} href={withFilter(f.cat)} className={`chip${cat === f.cat ? " active" : ""}`}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    {f.label}
-                    <LinkSpinner />
-                  </span>
-                </Link>
-              ))}
+              <div style={{ position: "relative", display: "inline-flex", alignItems: "center" }}>
+                <select value={selectedSeasonId} onChange={(e) => onSeasonChange(e.target.value)} style={selectStyle} aria-label="Campaña">
+                  {seasons.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}{s.isCurrent ? " · actual" : s.closed ? " · cerrada" : ""}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, pointerEvents: "none", color: "var(--text-tertiary)", fontSize: 10 }}>▾</span>
+              </div>
+              {isPastSeason && (
+                <span className="pill" style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)" }}>solo lectura</span>
+              )}
             </div>
+            <Link href="/historico" style={{ fontSize: 12, color: "var(--text-secondary)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+              Gestionar campañas <LinkSpinner />
+            </Link>
+          </div>
+        )}
+
+        {isPastSeason && (
+          <div style={{ padding: "9px 22px", background: "var(--warn-bg, #fcf3e3)", color: "var(--warn-text, #8a5a12)", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
+            Estás viendo <strong>{selectedSeason?.name}</strong> (campaña pasada). El detalle por sección de campañas cerradas se está habilitando — por ahora ves la operación actual.
           </div>
         )}
 

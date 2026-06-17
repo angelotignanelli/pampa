@@ -682,6 +682,14 @@ async function _getSeasonsWithSummary(): Promise<SeasonSummary[]> {
 }
 export const getSeasonsWithSummary = () => cached("getSeasonsWithSummary", _getSeasonsWithSummary);
 
+// Lista liviana de campañas para el selector global del topbar.
+export type SeasonOption = { id: string; name: string; isCurrent: boolean; closed: boolean };
+async function _getSeasonsList(): Promise<SeasonOption[]> {
+  const seasons = await prisma.season.findMany({ orderBy: { startDate: "desc" } });
+  return seasons.map((s) => ({ id: s.id, name: s.name, isCurrent: s.isCurrent, closed: s.closedAt !== null }));
+}
+export const getSeasonsList = () => cached("getSeasonsList", _getSeasonsList);
+
 // Animales que salieron del rodeo (vendidos / bajas) — para el histórico.
 export type ExitedAnimal = {
   tag: string;

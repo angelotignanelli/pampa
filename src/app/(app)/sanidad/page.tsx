@@ -2,6 +2,7 @@ import Link from "next/link";
 import { parseCat } from "@/lib/cat";
 import { getTreatments, getHerdEvents, getExpenses } from "@/lib/queries";
 import { formatARS, EVENT_TYPES, EXPENSE_CATEGORIES } from "@/lib/domain";
+import { CatFilter } from "@/components/CatFilter";
 import { IconPlus } from "@/components/icons";
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
@@ -46,6 +47,8 @@ export default async function SanidadPage({ searchParams }: { searchParams: Prom
           <Link href="/sanidad/nuevo" className="btn btn-primary"><IconPlus size={14} /> Tratamiento</Link>
         </div>
       </div>
+
+      <CatFilter />
 
       <div className="grid g3" style={{ marginBottom: 16 }}>
         <div className="mcard">

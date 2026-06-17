@@ -3,6 +3,7 @@ import { parseCat } from "@/lib/cat";
 import { getRations } from "@/lib/queries";
 import { formatKg, formatARS } from "@/lib/domain";
 import { DataTable, type Column, type Row } from "@/components/DataTable";
+import { CatFilter } from "@/components/CatFilter";
 import { IconPlus } from "@/components/icons";
 
 const COLUMNS: Column[] = [
@@ -55,6 +56,8 @@ export default async function AlimentacionPage({ searchParams }: { searchParams:
         </div>
         <Link href="/alimentacion/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nueva receta</Link>
       </div>
+
+      <CatFilter />
 
       {rations.length > 0 && (
         <div className="card" style={{ marginBottom: 16, padding: 0, overflow: "hidden" }}>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { parseCat } from "@/lib/cat";
 import { getLots } from "@/lib/queries";
 import { DataTable, type Column, type Row } from "@/components/DataTable";
+import { CatFilter } from "@/components/CatFilter";
 import { IconPlus } from "@/components/icons";
 
 const COLUMNS: Column[] = [
@@ -44,6 +45,7 @@ export default async function PesajesPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
+      <CatFilter />
       <DataTable columns={COLUMNS} rows={rows} searchKeys={["lote"]} searchPlaceholder="Buscar lote…" pageSize={12} emptyText="No hay lotes para esta categoría." />
     </>
   );
