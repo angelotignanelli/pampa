@@ -48,6 +48,14 @@ function whereCategory(cat: CatFilter) {
   return cat === "ALL" ? {} : { category: cat };
 }
 
+// Rango de fechas de una campaña. Si no hay seasonId (campaña actual), null = sin scope (todo).
+export type SeasonScope = { from: Date; to: Date };
+async function resolveScope(seasonId?: string): Promise<SeasonScope | null> {
+  if (!seasonId) return null;
+  const s = await prisma.season.findUnique({ where: { id: seasonId } });
+  return s ? { from: s.startDate, to: s.endDate } : null;
+}
+
 export type LotMetrics = {
   id: string;
   name: string;
@@ -60,13 +68,19 @@ export type LotMetrics = {
   lastWeighDate: string | null;
 };
 
-async function _getLots(cat: CatFilter): Promise<LotMetrics[]> {
+async function _getLots(cat: CatFilter, scope: SeasonScope | null): Promise<LotMetrics[]> {
+  // Sin scope (campaña actual): animales activos hoy, todos los pesajes.
+  // Con scope (campaña pasada): stock "a fin de campaña" (existían y no habían egresado a esa fecha)
+  // y pesajes dentro del rango de la campaña.
+  // Stock "a fin de campaña": los que NO habían egresado a esa fecha (createdAt no es confiable
+  // como fecha de ingreso al campo, así que el stock se define solo por el egreso).
+  const animalWhere = scope ? { OR: [{ exitDate: null }, { exitDate: { gt: scope.to } }] } : { status: "ACTIVE" };
+  const weighingWhere = scope ? { date: { gte: scope.from, lte: scope.to } } : {};
   const lots = await prisma.lot.findMany({
     where: whereCategory(cat),
     include: {
       paddock: true,
-      // Solo animales activos: los vendidos/bajas salen del stock (quedan en el histórico).
-      animals: { where: { status: "ACTIVE" }, include: { weighings: { orderBy: { date: "asc" } } } },
+      animals: { where: animalWhere, include: { weighings: { where: weighingWhere, orderBy: { date: "asc" } } } },
     },
     orderBy: { name: "asc" },
   });
@@ -102,7 +116,8 @@ async function _getLots(cat: CatFilter): Promise<LotMetrics[]> {
     };
   });
 }
-export const getLots = (cat: CatFilter) => cached(`getLots:${cat}`, () => _getLots(cat));
+export const getLots = (cat: CatFilter, seasonId?: string) =>
+  cached(`getLots:${cat}:${seasonId ?? ""}`, async () => _getLots(cat, await resolveScope(seasonId)));
 
 export type Overview = {
   headCount: number;
@@ -256,10 +271,12 @@ export const getWeighingRows = (cat: CatFilter) => cached(`getWeighingRows:${cat
 
 export type LotWeighing = { lotName: string; category: string; rows: AnimalRow[] };
 
-async function _getLotWeighingRows(lotId: string): Promise<LotWeighing | null> {
+async function _getLotWeighingRows(lotId: string, scope: SeasonScope | null): Promise<LotWeighing | null> {
+  const animalWhere = scope ? { OR: [{ exitDate: null }, { exitDate: { gt: scope.to } }] } : {};
+  const weighingWhere = scope ? { date: { gte: scope.from, lte: scope.to } } : {};
   const lot = await prisma.lot.findUnique({
     where: { id: lotId },
-    include: { animals: { include: { weighings: { orderBy: { date: "asc" } } } } },
+    include: { animals: { where: animalWhere, include: { weighings: { where: weighingWhere, orderBy: { date: "asc" } } } } },
   });
   if (!lot) return null;
   const rows = lot.animals
@@ -274,8 +291,8 @@ async function _getLotWeighingRows(lotId: string): Promise<LotWeighing | null> {
     .sort((a, b) => a.tag.localeCompare(b.tag));
   return { lotName: lot.name, category: lot.category, rows };
 }
-export const getLotWeighingRows = (lotId: string) =>
-  cached(`getLotWeighingRows:${lotId}`, () => _getLotWeighingRows(lotId));
+export const getLotWeighingRows = (lotId: string, seasonId?: string) =>
+  cached(`getLotWeighingRows:${lotId}:${seasonId ?? ""}`, async () => _getLotWeighingRows(lotId, await resolveScope(seasonId)));
 
 export type TreatmentRow = {
   id: string;
@@ -288,9 +305,13 @@ export type TreatmentRow = {
   cost: number;
 };
 
-async function _getTreatments(cat: CatFilter): Promise<TreatmentRow[]> {
+function dateInScope(scope: SeasonScope | null) {
+  return scope ? { date: { gte: scope.from, lte: scope.to } } : {};
+}
+
+async function _getTreatments(cat: CatFilter, scope: SeasonScope | null): Promise<TreatmentRow[]> {
   const treatments = await prisma.treatment.findMany({
-    where: { lot: whereCategory(cat) },
+    where: { lot: whereCategory(cat), ...dateInScope(scope) },
     include: { lot: true },
     orderBy: { date: "desc" },
   });
@@ -305,7 +326,8 @@ async function _getTreatments(cat: CatFilter): Promise<TreatmentRow[]> {
     cost: t.cost,
   }));
 }
-export const getTreatments = (cat: CatFilter) => cached(`getTreatments:${cat}`, () => _getTreatments(cat));
+export const getTreatments = (cat: CatFilter, seasonId?: string) =>
+  cached(`getTreatments:${cat}:${seasonId ?? ""}`, async () => _getTreatments(cat, await resolveScope(seasonId)));
 
 export type HerdEventRow = {
   id: string;
@@ -317,9 +339,9 @@ export type HerdEventRow = {
   note: string | null;
 };
 
-async function _getHerdEvents(cat: CatFilter): Promise<HerdEventRow[]> {
+async function _getHerdEvents(cat: CatFilter, scope: SeasonScope | null): Promise<HerdEventRow[]> {
   const events = await prisma.herdEvent.findMany({
-    where: { lot: whereCategory(cat) },
+    where: { lot: whereCategory(cat), ...dateInScope(scope) },
     include: { lot: true },
     orderBy: { date: "desc" },
   });
@@ -333,7 +355,8 @@ async function _getHerdEvents(cat: CatFilter): Promise<HerdEventRow[]> {
     note: e.note,
   }));
 }
-export const getHerdEvents = (cat: CatFilter) => cached(`getHerdEvents:${cat}`, () => _getHerdEvents(cat));
+export const getHerdEvents = (cat: CatFilter, seasonId?: string) =>
+  cached(`getHerdEvents:${cat}:${seasonId ?? ""}`, async () => _getHerdEvents(cat, await resolveScope(seasonId)));
 
 export type ExpenseRow = {
   id: string;
@@ -344,12 +367,12 @@ export type ExpenseRow = {
   lotName: string | null;
 };
 
-async function _getExpenses(cat: CatFilter): Promise<ExpenseRow[]> {
+async function _getExpenses(cat: CatFilter, scope: SeasonScope | null): Promise<ExpenseRow[]> {
   // El filtro de categoría aplica a los gastos de un lote; los del establecimiento
   // (sin lote) se muestran siempre. Con "ALL" no se filtra.
-  const where = cat === "ALL" ? {} : { OR: [{ lotId: null }, { lot: { category: cat } }] };
+  const catWhere = cat === "ALL" ? {} : { OR: [{ lotId: null }, { lot: { category: cat } }] };
   const expenses = await prisma.expense.findMany({
-    where,
+    where: { ...catWhere, ...dateInScope(scope) },
     include: { lot: true },
     orderBy: { date: "desc" },
   });
@@ -362,7 +385,8 @@ async function _getExpenses(cat: CatFilter): Promise<ExpenseRow[]> {
     lotName: e.lot?.name ?? null,
   }));
 }
-export const getExpenses = (cat: CatFilter) => cached(`getExpenses:${cat}`, () => _getExpenses(cat));
+export const getExpenses = (cat: CatFilter, seasonId?: string) =>
+  cached(`getExpenses:${cat}:${seasonId ?? ""}`, async () => _getExpenses(cat, await resolveScope(seasonId)));
 
 export type EconomyRow = {
   lotId: string;

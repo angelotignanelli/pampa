@@ -14,9 +14,10 @@ const COLUMNS: Column[] = [
   { key: "ultimo", label: "Último pesaje", fmt: "date" },
 ];
 
-export default async function PesajesPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
-  const cat = parseCat((await searchParams).cat);
-  const lots = await getLots(cat);
+export default async function PesajesPage({ searchParams }: { searchParams: Promise<{ cat?: string; season?: string }> }) {
+  const sp = await searchParams;
+  const cat = parseCat(sp.cat);
+  const lots = await getLots(cat, sp.season);
 
   const rows: Row[] = lots.map((l) => ({
     href: `/pesajes/${l.id}`,

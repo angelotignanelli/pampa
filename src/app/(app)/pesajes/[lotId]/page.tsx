@@ -14,9 +14,15 @@ const COLUMNS: Column[] = [
   { key: "gdp", label: "GDP", fmt: "gdp", align: "right" },
 ];
 
-export default async function LotePesajesPage({ params }: { params: Promise<{ lotId: string }> }) {
+export default async function LotePesajesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ lotId: string }>;
+  searchParams: Promise<{ season?: string }>;
+}) {
   const { lotId } = await params;
-  const lot = await getLotWeighingRows(lotId);
+  const lot = await getLotWeighingRows(lotId, (await searchParams).season);
 
   if (!lot) {
     return (

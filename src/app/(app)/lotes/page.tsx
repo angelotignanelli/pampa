@@ -7,10 +7,11 @@ import { IconPlus, IconArrowRight } from "@/components/icons";
 export default async function LotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string }>;
+  searchParams: Promise<{ cat?: string; season?: string }>;
 }) {
-  const cat = parseCat((await searchParams).cat);
-  const lots = await getLots(cat);
+  const sp = await searchParams;
+  const cat = parseCat(sp.cat);
+  const lots = await getLots(cat, sp.season);
   const headCount = lots.reduce((a, l) => a + l.headCount, 0);
   const paddocks = new Set(lots.map((l) => l.paddock).filter(Boolean)).size;
 

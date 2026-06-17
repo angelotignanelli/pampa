@@ -188,7 +188,7 @@ export function Shell({
 
         {isPastSeason && (
           <div style={{ padding: "9px 22px", background: "var(--warn-bg, #fcf3e3)", color: "var(--warn-text, #8a5a12)", borderBottom: "1px solid var(--border)", fontSize: 12 }}>
-            Estás viendo <strong>{selectedSeason?.name}</strong> (campaña pasada). El detalle por sección de campañas cerradas se está habilitando — por ahora ves la operación actual.
+            Estás viendo <strong>{selectedSeason?.name}</strong> — campaña pasada, solo lectura. Pesajes, Sanidad y Lotes muestran esa campaña; Economía y Resumen se están habilitando.
           </div>
         )}
 

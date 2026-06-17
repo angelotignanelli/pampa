@@ -27,12 +27,13 @@ function SectionCard({ title, action, children }: { title: string; action?: Reac
   );
 }
 
-export default async function SanidadPage({ searchParams }: { searchParams: Promise<{ cat?: string }> }) {
-  const cat = parseCat((await searchParams).cat);
+export default async function SanidadPage({ searchParams }: { searchParams: Promise<{ cat?: string; season?: string }> }) {
+  const sp = await searchParams;
+  const cat = parseCat(sp.cat);
   const [treatments, events, expenses] = await Promise.all([
-    getTreatments(cat),
-    getHerdEvents(cat),
-    getExpenses(cat),
+    getTreatments(cat, sp.season),
+    getHerdEvents(cat, sp.season),
+    getExpenses(cat, sp.season),
   ]);
   const sanitExpenses = expenses.filter((e) => e.category === "SANIDAD");
   const totalVet = treatments.reduce((a, t) => a + t.cost, 0) + sanitExpenses.reduce((a, e) => a + e.amount, 0);
