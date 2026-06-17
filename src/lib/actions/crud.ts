@@ -268,6 +268,54 @@ export async function createTreatment(formData: FormData) {
   redirect("/sanidad");
 }
 
+// Evento de manejo (vacunación, tacto, destete, etc.). Registro flexible.
+export async function createHerdEvent(formData: FormData) {
+  await requireUser();
+  const lotId = str(formData.get("lotId"));
+  const type = str(formData.get("type"));
+  if (!lotId || !type) throw new Error("Datos del evento inválidos");
+  const headCount = str(formData.get("headCount"));
+  const value = str(formData.get("value"));
+
+  await prisma.herdEvent.create({
+    data: {
+      lotId,
+      type,
+      date: date(formData.get("date")),
+      headCount: headCount ? Math.round(num(headCount)) : null,
+      value: value ? num(value) : null,
+      note: str(formData.get("note")) || null,
+    },
+  });
+  clearFarmCache();
+  revalidatePath("/sanidad");
+  redirect("/sanidad");
+}
+
+// Gasto detallado (hoy de sanidad). Se refleja en el costo veterinario de Economía.
+export async function createExpense(formData: FormData) {
+  await requireUser();
+  const concept = str(formData.get("concept"));
+  const amount = Math.round(num(formData.get("amount")));
+  if (!concept || amount <= 0) throw new Error("Datos del gasto inválidos");
+
+  await prisma.expense.create({
+    data: {
+      date: date(formData.get("date")),
+      category: str(formData.get("category")) || "SANIDAD",
+      concept,
+      amount,
+      lotId: str(formData.get("lotId")) || null,
+      farmId: await farmId(),
+    },
+  });
+  clearFarmCache();
+  revalidatePath("/sanidad");
+  revalidatePath("/economia");
+  revalidatePath("/");
+  redirect("/sanidad");
+}
+
 export async function createOwner(formData: FormData) {
   const user = await requireUser();
   if (!canManage(user.role)) throw new Error("No autorizado");

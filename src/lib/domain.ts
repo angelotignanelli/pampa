@@ -28,6 +28,34 @@ export const TREATMENT_TYPES = {
   OTHER: "Otro",
 } as const;
 
+export const EVENT_TYPES = {
+  VACCINATION: "Vacunación",
+  PALPATION: "Tacto",
+  WEANING: "Destete",
+  CASTRATION: "Castración",
+  BRANDING: "Señalada / Marcación",
+  OTHER: "Otro",
+} as const;
+
+// Pista de qué representa el "valor" numérico según el tipo de evento.
+export const EVENT_VALUE_HINT: Record<string, string> = {
+  VACCINATION: "Dosis aplicadas (opcional)",
+  PALPATION: "% de preñez",
+  WEANING: "Peso promedio al destete (kg)",
+  CASTRATION: "—",
+  BRANDING: "—",
+  OTHER: "Dato (opcional)",
+};
+
+export const EXPENSE_CATEGORIES = {
+  SANIDAD: "Sanidad",
+  ALIMENTO: "Alimento",
+  PERSONAL: "Personal",
+  INFRAESTRUCTURA: "Infraestructura",
+  SERVICIOS: "Servicios",
+  OTRO: "Otro",
+} as const;
+
 export const MOVEMENT_TYPES = {
   PURCHASE: "Compra",
   SALE: "Venta",

@@ -300,6 +300,63 @@ async function _getTreatments(cat: CatFilter): Promise<TreatmentRow[]> {
 }
 export const getTreatments = (cat: CatFilter) => cached(`getTreatments:${cat}`, () => _getTreatments(cat));
 
+export type HerdEventRow = {
+  id: string;
+  type: string;
+  date: string;
+  lotName: string;
+  headCount: number | null;
+  value: number | null;
+  note: string | null;
+};
+
+async function _getHerdEvents(cat: CatFilter): Promise<HerdEventRow[]> {
+  const events = await prisma.herdEvent.findMany({
+    where: { lot: whereCategory(cat) },
+    include: { lot: true },
+    orderBy: { date: "desc" },
+  });
+  return events.map((e) => ({
+    id: e.id,
+    type: e.type,
+    date: e.date.toISOString(),
+    lotName: e.lot.name,
+    headCount: e.headCount,
+    value: e.value,
+    note: e.note,
+  }));
+}
+export const getHerdEvents = (cat: CatFilter) => cached(`getHerdEvents:${cat}`, () => _getHerdEvents(cat));
+
+export type ExpenseRow = {
+  id: string;
+  date: string;
+  category: string;
+  concept: string;
+  amount: number;
+  lotName: string | null;
+};
+
+async function _getExpenses(cat: CatFilter): Promise<ExpenseRow[]> {
+  // El filtro de categoría aplica a los gastos de un lote; los del establecimiento
+  // (sin lote) se muestran siempre. Con "ALL" no se filtra.
+  const where = cat === "ALL" ? {} : { OR: [{ lotId: null }, { lot: { category: cat } }] };
+  const expenses = await prisma.expense.findMany({
+    where,
+    include: { lot: true },
+    orderBy: { date: "desc" },
+  });
+  return expenses.map((e) => ({
+    id: e.id,
+    date: e.date.toISOString(),
+    category: e.category,
+    concept: e.concept,
+    amount: e.amount,
+    lotName: e.lot?.name ?? null,
+  }));
+}
+export const getExpenses = (cat: CatFilter) => cached(`getExpenses:${cat}`, () => _getExpenses(cat));
+
 export type EconomyRow = {
   lotId: string;
   lotName: string;
@@ -382,14 +439,18 @@ async function _getPriceAlert(): Promise<PriceAlert> {
 export const getPriceAlert = () => cached("getPriceAlert", _getPriceAlert);
 
 async function _getEconomy(cat: CatFilter): Promise<{ rows: EconomyRow[]; prices: SalePrices }> {
-  const [lots, rations, treatments, prices] = await Promise.all([
+  const [lots, rations, treatments, sanitExpenses, prices] = await Promise.all([
     getLots(cat),
     getRations(cat),
     prisma.treatment.groupBy({ by: ["lotId"], _sum: { cost: true }, where: { lot: whereCategory(cat) } }),
+    prisma.expense.groupBy({ by: ["lotId"], _sum: { amount: true }, where: { category: "SANIDAD", lotId: { not: null }, ...(cat === "ALL" ? {} : { lot: { category: cat } }) } }),
     getSalePrices(),
   ]);
   const rationByLot = new Map(rations.map((r) => [r.lotId, r]));
-  const vetByLot = new Map(treatments.map((t) => [t.lotId, t._sum.cost ?? 0]));
+  // Costo veterinario por lote = tratamientos + gastos de sanidad cargados a ese lote.
+  const vetByLot = new Map<string, number>();
+  for (const t of treatments) vetByLot.set(t.lotId, (vetByLot.get(t.lotId) ?? 0) + (t._sum.cost ?? 0));
+  for (const e of sanitExpenses) if (e.lotId) vetByLot.set(e.lotId, (vetByLot.get(e.lotId) ?? 0) + (e._sum.amount ?? 0));
 
   const rows = lots.map((l) => {
     const r = rationByLot.get(l.id);

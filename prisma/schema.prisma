@@ -42,6 +42,7 @@ model Farm {
   lots     Lot[]
   owners   Owner[]
   seasons  Season[]
+  expenses Expense[]
 }
 
 // Campaña / ejercicio: agrupa el histórico del campo por ciclo (no necesariamente año calendario).
@@ -125,6 +126,8 @@ model Lot {
   treatments Treatment[]
   movements  Movement[]
   shares     Share[]
+  events     HerdEvent[]
+  expenses   Expense[]
 }
 
 model Animal {
@@ -212,6 +215,40 @@ model Treatment {
   createdById   String?
   createdBy     User?    @relation(fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
+}
+
+// Evento de manejo (no es un tratamiento con costo): vacunación, tacto, destete, etc.
+// Registro flexible: un valor numérico cuyo significado depende del tipo (% preñez, kg, dosis…).
+model HerdEvent {
+  id          String   @id @default(cuid())
+  type        String // VACCINATION | PALPATION | WEANING | CASTRATION | BRANDING | OTHER
+  date        DateTime
+  lotId       String
+  lot         Lot      @relation(fields: [lotId], references: [id])
+  headCount   Int? // cabezas involucradas
+  value       Float? // dato/resultado (ej. % preñez en tacto, kg promedio en destete)
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([lotId, date])
+}
+
+// Gasto detallado (hoy de sanidad). Se suma al costo veterinario en Economía.
+model Expense {
+  id          String   @id @default(cuid())
+  date        DateTime
+  category    String // SANIDAD (preparado para más categorías)
+  concept     String // detalle del gasto
+  amount      Int // ARS
+  lotId       String?
+  lot         Lot?     @relation(fields: [lotId], references: [id])
+  farmId      String
+  farm        Farm     @relation(fields: [farmId], references: [id])
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([category, date])
 }
 
 model Movement {

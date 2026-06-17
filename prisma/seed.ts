@@ -35,6 +35,8 @@ async function main() {
   await prisma.ration.deleteMany();
   await prisma.treatment.deleteMany();
   await prisma.movement.deleteMany();
+  await prisma.herdEvent.deleteMany();
+  await prisma.expense.deleteMany();
   await prisma.animal.deleteMany();
   await prisma.lot.deleteMany();
   await prisma.paddock.deleteMany();
@@ -161,6 +163,20 @@ async function main() {
         lotId: lot.id,
         createdById: owner.id,
       },
+    });
+
+    // Eventos de manejo (demo)
+    await prisma.herdEvent.create({
+      data: { type: "VACCINATION", date: monthsAgo(0), lotId: lot.id, headCount: def.count, note: "Vacuna aftosa, lote completo" },
+    });
+    if (def.category === "COW") {
+      await prisma.herdEvent.create({
+        data: { type: "PALPATION", date: monthsAgo(1), lotId: lot.id, headCount: def.count, value: 88, note: "Tacto general" },
+      });
+    }
+    // Gasto de sanidad (demo)
+    await prisma.expense.create({
+      data: { date: monthsAgo(0), category: "SANIDAD", concept: "Compra de vacunas y antiparasitarios", amount: def.count * 800, lotId: lot.id, farmId: farm.id },
     });
   }
 
