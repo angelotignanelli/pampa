@@ -534,6 +534,22 @@ export function herdValue(lots: LotMetrics[], priceByCat: Record<string, number>
 }
 
 // --- Histórico por campaña ---
+export type OwnerSplitFrozen = { name: string; kg: number; value: number; margin: number };
+export type SeasonClose = {
+  closedAt: string;
+  headCount: number;
+  totalKg: number;
+  herdValue: number;
+  salesQty: number;
+  salesAmount: number;
+  purchasesQty: number;
+  purchasesAmount: number;
+  feedCost: number;
+  vetCost: number;
+  margin: number;
+  prices: Record<string, number>;
+  ownerSplit: OwnerSplitFrozen[];
+};
 export type SeasonSummary = {
   id: string;
   name: string;
@@ -547,10 +563,11 @@ export type SeasonSummary = {
   sales: { qty: number; amount: number };
   births: number;
   deaths: number;
+  close: SeasonClose | null; // foto congelada, si la campaña ya se cerró
 };
 
 async function _getSeasonsWithSummary(): Promise<SeasonSummary[]> {
-  const seasons = await prisma.season.findMany({ orderBy: { startDate: "desc" } });
+  const seasons = await prisma.season.findMany({ orderBy: { startDate: "desc" }, include: { close: true } });
   return Promise.all(
     seasons.map(async (s) => {
       const range = { gte: s.startDate, lte: s.endDate };
@@ -560,6 +577,7 @@ async function _getSeasonsWithSummary(): Promise<SeasonSummary[]> {
         prisma.movement.groupBy({ by: ["type"], where: { date: range }, _sum: { quantity: true, amount: true } }),
       ]);
       const byType = (t: string) => movements.find((m) => m.type === t)?._sum;
+      const c = s.close;
       return {
         id: s.id,
         name: s.name,
@@ -573,8 +591,54 @@ async function _getSeasonsWithSummary(): Promise<SeasonSummary[]> {
         sales: { qty: byType("SALE")?.quantity ?? 0, amount: byType("SALE")?.amount ?? 0 },
         births: byType("BIRTH")?.quantity ?? 0,
         deaths: byType("DEATH")?.quantity ?? 0,
+        close: c
+          ? {
+              closedAt: c.closedAt.toISOString(),
+              headCount: c.headCount,
+              totalKg: c.totalKg,
+              herdValue: c.herdValue,
+              salesQty: c.salesQty,
+              salesAmount: c.salesAmount,
+              purchasesQty: c.purchasesQty,
+              purchasesAmount: c.purchasesAmount,
+              feedCost: c.feedCost,
+              vetCost: c.vetCost,
+              margin: c.margin,
+              prices: c.prices as Record<string, number>,
+              ownerSplit: c.ownerSplit as unknown as OwnerSplitFrozen[],
+            }
+          : null,
       };
     }),
   );
 }
 export const getSeasonsWithSummary = () => cached("getSeasonsWithSummary", _getSeasonsWithSummary);
+
+// Animales que salieron del rodeo (vendidos / bajas) — para el histórico.
+export type ExitedAnimal = {
+  tag: string;
+  lotName: string;
+  category: string;
+  reason: string; // SOLD | DEAD
+  date: string | null;
+  weight: number | null;
+  price: number | null;
+};
+
+async function _getExitedAnimals(): Promise<ExitedAnimal[]> {
+  const animals = await prisma.animal.findMany({
+    where: { status: { not: "ACTIVE" } },
+    include: { lot: true },
+    orderBy: { exitDate: "desc" },
+  });
+  return animals.map((a) => ({
+    tag: a.tag,
+    lotName: a.lot.name,
+    category: a.category,
+    reason: a.exitReason ?? a.status,
+    date: a.exitDate ? a.exitDate.toISOString() : null,
+    weight: a.exitWeightKg,
+    price: a.exitPriceArs,
+  }));
+}
+export const getExitedAnimals = () => cached("getExitedAnimals", _getExitedAnimals);

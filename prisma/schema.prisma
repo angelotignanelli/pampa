@@ -51,12 +51,34 @@ model Season {
   startDate DateTime
   endDate   DateTime
   isCurrent Boolean   @default(false)
-  closedAt  DateTime? // cuando se cierra el ejercicio (futuro: snapshots congelados)
+  closedAt  DateTime? // cuando se cierra el ejercicio
   farmId    String
-  farm      Farm      @relation(fields: [farmId], references: [id])
-  createdAt DateTime  @default(now())
+  farm      Farm         @relation(fields: [farmId], references: [id])
+  close     SeasonClose?
+  createdAt DateTime     @default(now())
 
   @@index([farmId, startDate])
+}
+
+// Cierre de campaña: foto CONGELADA de los números clave al cerrar el ejercicio.
+// Inmutable: guarda los precios y el reparto que regían entonces (no se recalcula).
+model SeasonClose {
+  id              String   @id @default(cuid())
+  seasonId        String   @unique
+  season          Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  closedAt        DateTime @default(now())
+  headCount       Int // stock activo al cierre
+  totalKg         Int // kg vivos del rodeo
+  herdValue       Int // valor estimado
+  salesQty        Int
+  salesAmount     Int
+  purchasesQty    Int
+  purchasesAmount Int
+  feedCost        Int
+  vetCost         Int
+  margin          Int // margen total repartible
+  prices          Json // { STEER, COW, CALF } vigentes al cierre
+  ownerSplit      Json // [{ name, kg, value, margin }] congelado
 }
 
 // Socio del campo. Su participación (Share) puede ser global (lotId null) o por lote.

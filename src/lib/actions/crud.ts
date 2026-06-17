@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canManage } from "@/lib/auth";
-import { clearFarmCache } from "@/lib/queries";
+import { clearFarmCache, getLots, getSalePrices, getEconomy, getOwnerSplit, herdValue } from "@/lib/queries";
 
 function num(v: FormDataEntryValue | null): number {
   const n = parseFloat(String(v ?? "").replace(",", "."));
@@ -145,6 +145,55 @@ export async function createRation(formData: FormData) {
   clearFarmCache();
   revalidatePath("/alimentacion");
   redirect("/alimentacion");
+}
+
+// Cierra una campaña: congela los KPIs (stock, valor, costos, reparto por socio y precios
+// vigentes) en una foto inmutable. No se recalcula después aunque cambien precios o socios.
+export async function closeSeason(formData: FormData) {
+  const user = await requireUser();
+  if (!canManage(user.role)) throw new Error("No autorizado");
+  const seasonId = str(formData.get("seasonId"));
+  const season = await prisma.season.findUnique({ where: { id: seasonId } });
+  if (!season) throw new Error("Campaña no encontrada");
+  if (season.closedAt) throw new Error("La campaña ya está cerrada");
+
+  const [lots, prices, economy, split, movs] = await Promise.all([
+    getLots("ALL"),
+    getSalePrices(),
+    getEconomy("ALL"),
+    getOwnerSplit("ALL"),
+    prisma.movement.groupBy({
+      by: ["type"],
+      where: { date: { gte: season.startDate, lte: season.endDate } },
+      _sum: { quantity: true, amount: true },
+    }),
+  ]);
+  const byType = (t: string) => movs.find((m) => m.type === t)?._sum;
+  const ownerSplit = split.owners.map((o) => ({ name: o.name, kg: o.kg, value: o.valueShare, margin: o.marginShare }));
+
+  await prisma.$transaction([
+    prisma.seasonClose.create({
+      data: {
+        seasonId,
+        headCount: lots.reduce((a, l) => a + l.headCount, 0),
+        totalKg: Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight, 0)),
+        herdValue: herdValue(lots, prices.byCat),
+        salesQty: byType("SALE")?.quantity ?? 0,
+        salesAmount: byType("SALE")?.amount ?? 0,
+        purchasesQty: byType("PURCHASE")?.quantity ?? 0,
+        purchasesAmount: byType("PURCHASE")?.amount ?? 0,
+        feedCost: Math.round(economy.rows.reduce((a, r) => a + r.feedCost, 0)),
+        vetCost: Math.round(economy.rows.reduce((a, r) => a + r.vetCost, 0)),
+        margin: split.owners.reduce((a, o) => a + o.marginShare, 0),
+        prices: prices.byCat,
+        ownerSplit,
+      },
+    }),
+    prisma.season.update({ where: { id: seasonId }, data: { closedAt: new Date(), isCurrent: false } }),
+  ]);
+  clearFarmCache();
+  revalidatePath("/historico");
+  redirect("/historico");
 }
 
 export async function createSeason(formData: FormData) {
