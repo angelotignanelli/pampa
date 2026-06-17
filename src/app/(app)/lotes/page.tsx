@@ -2,7 +2,7 @@ import Link from "next/link";
 import { parseCat, gdpFmt, pillClass } from "@/lib/cat";
 import { getLots } from "@/lib/queries";
 import { categoryLabel, formatKg } from "@/lib/domain";
-import { IconPlus } from "@/components/icons";
+import { IconPlus, IconArrowRight } from "@/components/icons";
 
 export default async function LotesPage({
   searchParams,
@@ -20,6 +20,7 @@ export default async function LotesPage({
         <h2 className="section-title" style={{ margin: 0 }}>Lotes y hacienda</h2>
         <div style={{ display: "flex", gap: 8 }}>
           <Link href="/movimientos/nuevo" className="btn"><IconPlus size={14} /> Movimiento</Link>
+          <Link href="/egresos/nuevo" className="btn"><IconArrowRight size={14} /> Egreso</Link>
           <Link href="/animales/nuevo" className="btn"><IconPlus size={14} /> Animal</Link>
           <Link href="/lotes/nuevo" className="btn btn-primary"><IconPlus size={14} /> Lote</Link>
         </div>

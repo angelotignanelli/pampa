@@ -247,6 +247,49 @@ export async function setSalePrice(formData: FormData) {
   redirect("/economia");
 }
 
+// Egreso de animales: venta o baja. Marca N animales activos del lote como egresados
+// (no se borran: guardan fecha, peso y precio de salida) y registra el movimiento.
+export async function registerExit(formData: FormData) {
+  await requireUser();
+  const lotId = str(formData.get("lotId"));
+  const kind = str(formData.get("kind")); // SALE | DEATH
+  const quantity = Math.round(num(formData.get("quantity")));
+  const pricePerKg = Math.round(num(formData.get("pricePerKg")));
+  const when = date(formData.get("date"));
+  if (!lotId || !["SALE", "DEATH"].includes(kind) || quantity < 1) throw new Error("Datos de egreso inválidos");
+
+  const animals = await prisma.animal.findMany({
+    where: { lotId, status: "ACTIVE" },
+    include: { weighings: { orderBy: { date: "desc" }, take: 1 } },
+    orderBy: { tag: "asc" },
+    take: quantity,
+  });
+  if (animals.length < quantity) throw new Error(`El lote solo tiene ${animals.length} animales activos`);
+
+  const status = kind === "SALE" ? "SOLD" : "DEAD";
+  let total = 0;
+  const updates = animals.map((a) => {
+    const w = a.weighings[0]?.weightKg ?? 0;
+    const price = kind === "SALE" ? Math.round(w * pricePerKg) : 0;
+    total += price;
+    return prisma.animal.update({
+      where: { id: a.id },
+      data: { status, exitDate: when, exitReason: status, exitWeightKg: w, exitPriceArs: price },
+    });
+  });
+
+  await prisma.$transaction([
+    ...updates,
+    prisma.movement.create({
+      data: { lotId, type: kind, quantity: animals.length, amount: total, date: when, note: kind === "SALE" ? `Venta a $${pricePerKg}/kg` : "Baja" },
+    }),
+  ]);
+  clearFarmCache();
+  revalidatePath("/lotes");
+  revalidatePath("/");
+  redirect("/lotes");
+}
+
 export async function createMovement(formData: FormData) {
   await requireUser();
   const lotId = str(formData.get("lotId"));

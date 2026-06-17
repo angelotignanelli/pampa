@@ -65,7 +65,8 @@ async function _getLots(cat: CatFilter): Promise<LotMetrics[]> {
     where: whereCategory(cat),
     include: {
       paddock: true,
-      animals: { include: { weighings: { orderBy: { date: "asc" } } } },
+      // Solo animales activos: los vendidos/bajas salen del stock (quedan en el histórico).
+      animals: { where: { status: "ACTIVE" }, include: { weighings: { orderBy: { date: "asc" } } } },
     },
     orderBy: { name: "asc" },
   });

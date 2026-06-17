@@ -113,6 +113,11 @@ model Animal {
   sex       String? // M | F
   birthDate DateTime?
   status    String    @default("ACTIVE") // ACTIVE | SOLD | DEAD
+  // Egreso: el animal no se borra, queda con sus datos de salida para el histórico.
+  exitDate    DateTime?
+  exitReason  String? // SOLD | DEAD
+  exitWeightKg Float? // peso al egreso (último pesaje)
+  exitPriceArs Int? // $ de venta (0 en bajas)
   lotId     String
   lot       Lot       @relation(fields: [lotId], references: [id])
   createdAt DateTime  @default(now())
