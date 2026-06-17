@@ -70,7 +70,10 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
 
       <div className="grid g2" style={{ marginBottom: 12 }}>
         <div className="card">
-          <p style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 500 }}>{r.name} · composición del mixer</p>
+          <p style={{ margin: "0 0 2px", fontSize: 13, fontWeight: 500 }}>{r.name} · composición del mixer</p>
+          <p style={{ margin: "0 0 12px", fontSize: 11, color: "var(--text-tertiary)" }}>
+            Vigente desde {new Date(r.effectiveFrom).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })}
+          </p>
           <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 9 }}>
             {r.items.map((it) => (
               <div key={it.name}>

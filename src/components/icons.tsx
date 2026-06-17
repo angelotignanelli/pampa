@@ -56,6 +56,16 @@ export function IconCash({ size = 16 }: IconProps) {
     </svg>
   );
 }
+export function IconHistory({ size = 16 }: IconProps) {
+  return (
+    <svg {...base(size)} aria-hidden="true">
+      <path d="M3 5v5h5" />
+      <path d="M3.5 10a9 9 0 1 1 1 5" />
+      <path d="M12 8v4l3 2" />
+    </svg>
+  );
+}
+
 export function IconList({ size = 16 }: IconProps) {
   return (
     <svg {...base(size)} aria-hidden="true">

@@ -16,6 +16,7 @@ import {
   IconLeaf,
   IconFilter,
   IconBell,
+  IconHistory,
   IconLogout,
 } from "@/components/icons";
 
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/economia", label: "Economía", Icon: IconCash, badge: "" },
   { href: "/lotes", label: "Lotes", Icon: IconList, badge: "" },
   { href: "/socios", label: "Socios", Icon: IconUsers, badge: "" },
+  { href: "/historico", label: "Histórico", Icon: IconHistory, badge: "" },
 ];
 
 const FILTERS = [
@@ -58,7 +60,7 @@ export function Shell({
   const cat = params.get("cat") ?? "ALL";
 
   // Páginas que muestran todo el rodeo: no usan el filtro por categoría.
-  const NO_FILTER = ["/", "/lotes", "/socios"];
+  const NO_FILTER = ["/", "/lotes", "/socios", "/historico"];
   const showFilter = !NO_FILTER.includes(pathname);
 
   const withCat = (href: string) => (cat === "ALL" || NO_FILTER.includes(href) ? href : `${href}?cat=${cat}`);

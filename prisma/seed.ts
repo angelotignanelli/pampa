@@ -42,6 +42,7 @@ async function main() {
   await prisma.marketPrice.deleteMany();
   await prisma.priceSetting.deleteMany();
   await prisma.sourceStatus.deleteMany();
+  await prisma.season.deleteMany();
   await prisma.user.deleteMany();
   await prisma.farm.deleteMany();
 
@@ -195,6 +196,17 @@ async function main() {
   });
   await prisma.sourceStatus.create({
     data: { source: "MAG_CANUELAS", ok: true, lastOkAt: cotizDate, lastTryAt: cotizDate },
+  });
+
+  // Campaña actual (ciclo julio→junio, típico en ganadería). El histórico se arma a partir de acá.
+  await prisma.season.create({
+    data: {
+      name: "Campaña 2025/26",
+      startDate: new Date(2025, 6, 1), // 01/07/2025
+      endDate: new Date(2026, 5, 30), // 30/06/2026
+      isCurrent: true,
+      farmId: farm.id,
+    },
   });
 
   const totals = {

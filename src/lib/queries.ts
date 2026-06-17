@@ -161,13 +161,15 @@ export type RationView = {
   headCount: number;
   avgWeight: number; // peso promedio por animal (último pesaje)
   daysInFeedlot: number; // días desde que arrancó la ración (corral)
+  effectiveFrom: string; // ISO
 };
 
 async function _getRations(cat: CatFilter): Promise<RationView[]> {
   const [lots, rations] = await Promise.all([
     getLots(cat),
     prisma.ration.findMany({
-      where: { lot: whereCategory(cat) },
+      // Solo las raciones vigentes (effectiveTo null); las versiones anteriores quedan en el histórico.
+      where: { lot: whereCategory(cat), effectiveTo: null },
       include: { lot: true, items: { include: { ingredient: true } } },
       orderBy: { effectiveFrom: "desc" },
     }),
@@ -209,6 +211,7 @@ async function _getRations(cat: CatFilter): Promise<RationView[]> {
       headCount: lot?.headCount ?? 0,
       avgWeight: lot?.avgWeight ?? 0,
       daysInFeedlot: daysBetween(r.effectiveFrom, now),
+      effectiveFrom: r.effectiveFrom.toISOString(),
     };
   });
 }
@@ -528,3 +531,49 @@ export function targetSaleDate(currentKg: number, gdp: number, targetKg = 450): 
 export function herdValue(lots: LotMetrics[], priceByCat: Record<string, number>): number {
   return Math.round(lots.reduce((a, l) => a + l.headCount * l.avgWeight * (priceByCat[l.category] ?? 0), 0));
 }
+
+// --- Histórico por campaña ---
+export type SeasonSummary = {
+  id: string;
+  name: string;
+  startDate: string; // ISO
+  endDate: string; // ISO
+  isCurrent: boolean;
+  closed: boolean;
+  weighings: number;
+  treatments: number;
+  purchases: { qty: number; amount: number };
+  sales: { qty: number; amount: number };
+  births: number;
+  deaths: number;
+};
+
+async function _getSeasonsWithSummary(): Promise<SeasonSummary[]> {
+  const seasons = await prisma.season.findMany({ orderBy: { startDate: "desc" } });
+  return Promise.all(
+    seasons.map(async (s) => {
+      const range = { gte: s.startDate, lte: s.endDate };
+      const [weighings, treatments, movements] = await Promise.all([
+        prisma.weighing.count({ where: { date: range } }),
+        prisma.treatment.count({ where: { date: range } }),
+        prisma.movement.groupBy({ by: ["type"], where: { date: range }, _sum: { quantity: true, amount: true } }),
+      ]);
+      const byType = (t: string) => movements.find((m) => m.type === t)?._sum;
+      return {
+        id: s.id,
+        name: s.name,
+        startDate: s.startDate.toISOString(),
+        endDate: s.endDate.toISOString(),
+        isCurrent: s.isCurrent,
+        closed: s.closedAt !== null,
+        weighings,
+        treatments,
+        purchases: { qty: byType("PURCHASE")?.quantity ?? 0, amount: byType("PURCHASE")?.amount ?? 0 },
+        sales: { qty: byType("SALE")?.quantity ?? 0, amount: byType("SALE")?.amount ?? 0 },
+        births: byType("BIRTH")?.quantity ?? 0,
+        deaths: byType("DEATH")?.quantity ?? 0,
+      };
+    }),
+  );
+}
+export const getSeasonsWithSummary = () => cached("getSeasonsWithSummary", _getSeasonsWithSummary);

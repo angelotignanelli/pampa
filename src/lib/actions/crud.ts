@@ -127,18 +127,43 @@ export async function createRation(formData: FormData) {
     .map((ing) => ({ ingredientId: ing.id, percentage: num(formData.get(`pct_${ing.id}`)) }))
     .filter((it) => it.percentage > 0);
 
+  const effectiveFrom = date(formData.get("effectiveFrom"));
+  // Versionado: la ración vigente del lote se "cierra" al arrancar la nueva (no se pisa el histórico).
+  await prisma.ration.updateMany({
+    where: { lotId, effectiveTo: null },
+    data: { effectiveTo: effectiveFrom },
+  });
   await prisma.ration.create({
     data: {
       name,
       lotId,
       kgPerHeadDay,
-      effectiveFrom: date(formData.get("effectiveFrom")),
+      effectiveFrom,
       items: { create: items },
     },
   });
   clearFarmCache();
   revalidatePath("/alimentacion");
   redirect("/alimentacion");
+}
+
+export async function createSeason(formData: FormData) {
+  const user = await requireUser();
+  if (!canManage(user.role)) throw new Error("No autorizado");
+  const name = str(formData.get("name"));
+  if (!name) throw new Error("Falta el nombre de la campaña");
+  const startDate = date(formData.get("startDate"));
+  const endDate = date(formData.get("endDate"));
+  if (endDate < startDate) throw new Error("La fecha de fin debe ser posterior al inicio");
+  const makeCurrent = str(formData.get("isCurrent")) === "on";
+
+  if (makeCurrent) await prisma.season.updateMany({ data: { isCurrent: false } });
+  await prisma.season.create({
+    data: { name, startDate, endDate, isCurrent: makeCurrent, farmId: await farmId() },
+  });
+  clearFarmCache();
+  revalidatePath("/historico");
+  redirect("/historico");
 }
 
 export async function createTreatment(formData: FormData) {

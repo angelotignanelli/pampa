@@ -41,6 +41,22 @@ model Farm {
   paddocks Paddock[]
   lots     Lot[]
   owners   Owner[]
+  seasons  Season[]
+}
+
+// Campaña / ejercicio: agrupa el histórico del campo por ciclo (no necesariamente año calendario).
+model Season {
+  id        String    @id @default(cuid())
+  name      String // ej. "Campaña 2025/26"
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean   @default(false)
+  closedAt  DateTime? // cuando se cierra el ejercicio (futuro: snapshots congelados)
+  farmId    String
+  farm      Farm      @relation(fields: [farmId], references: [id])
+  createdAt DateTime  @default(now())
+
+  @@index([farmId, startDate])
 }
 
 // Socio del campo. Su participación (Share) puede ser global (lotId null) o por lote.
@@ -137,6 +153,7 @@ model Ration {
   id             String       @id @default(cuid())
   name           String
   effectiveFrom  DateTime
+  effectiveTo    DateTime? // null = vigente; se completa cuando se carga una ración nueva para el lote
   kgPerHeadDay   Float // kg de mezcla por cabeza por día
   lotId          String
   lot            Lot          @relation(fields: [lotId], references: [id])
