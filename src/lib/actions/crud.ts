@@ -396,22 +396,22 @@ export async function registerExit(formData: FormData) {
 
   const status = kind === "SALE" ? "SOLD" : "DEAD";
   let total = 0;
-  const updates = animals.map((a) => {
-    const w = a.weighings[0]?.weightKg ?? 0;
-    const price = kind === "SALE" ? Math.round(w * pricePerKg) : 0;
-    total += price;
-    return prisma.animal.update({
-      where: { id: a.id },
-      data: { status, exitDate: when, exitReason: status, exitWeightKg: w, exitPriceArs: price },
-    });
-  });
-
-  await prisma.$transaction([
-    ...updates,
-    prisma.movement.create({
-      data: { lotId, type: kind, quantity: animals.length, amount: total, date: when, note: kind === "SALE" ? `Venta a $${pricePerKg}/kg` : "Baja" },
+  // Updates en paralelo (el pool de Prisma corre varios a la vez): una baja/venta de
+  // muchos animales no timeoutea, a diferencia de N updates secuenciales en transacción.
+  await Promise.all(
+    animals.map((a) => {
+      const w = a.weighings[0]?.weightKg ?? 0;
+      const price = kind === "SALE" ? Math.round(w * pricePerKg) : 0;
+      total += price;
+      return prisma.animal.update({
+        where: { id: a.id },
+        data: { status, exitDate: when, exitReason: status, exitWeightKg: w, exitPriceArs: price },
+      });
     }),
-  ]);
+  );
+  await prisma.movement.create({
+    data: { lotId, type: kind, quantity: animals.length, amount: total, date: when, note: kind === "SALE" ? `Venta a $${pricePerKg}/kg` : "Baja" },
+  });
   clearFarmCache();
   revalidatePath("/lotes");
   revalidatePath("/");
