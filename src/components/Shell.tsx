@@ -117,20 +117,6 @@ export function Shell({
 
         <div style={{ flex: 1 }} />
 
-        {/* Tarjeta upgrade */}
-        <div style={{ background: "var(--olive)", color: "#f4f1e8", borderRadius: "var(--radius-lg)", padding: 16 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(244,241,232,0.15)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
-            <IconScale size={16} />
-          </div>
-          <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 500 }}>Automatizá el pesaje</p>
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "rgba(244,241,232,0.7)", lineHeight: 1.5 }}>
-            Conectá tu balanza o lector RFID y cargá pesajes sin escribir.
-          </p>
-          <button style={{ width: "100%", padding: "9px", borderRadius: 9, border: "none", background: "#f4f1e8", color: "var(--olive)", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
-            Conectar
-          </button>
-        </div>
-
         {/* Usuario */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px", borderTop: "1px solid var(--border)" }}>
           <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--info-bg)", color: "var(--info-text)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 500 }}>
