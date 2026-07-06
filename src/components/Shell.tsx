@@ -150,7 +150,7 @@ export function Shell({
 
       {/* Panel principal */}
       <div className="panel" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {priceAlert?.failing && pathname !== "/economia" && (
+        {priceAlert?.failing && pathname === "/" && (
           <Link
             href="/economia"
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 22px", background: "var(--warn-bg, #fcf3e3)", color: "var(--warn-text, #8a5a12)", borderBottom: "1px solid var(--border)", fontSize: 13, textDecoration: "none" }}
