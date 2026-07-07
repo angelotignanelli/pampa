@@ -226,6 +226,30 @@ async function main() {
     },
   });
 
+  // Campañas pasadas CERRADAS con su balance congelado — para poder cambiar entre años
+  // y ver el modo solo-lectura + el cierre. Los valores crecen con el tiempo (inflación).
+  const closedSeasons = [
+    { name: "Campaña 2023/24", start: new Date(2023, 6, 1), end: new Date(2024, 5, 30), headCount: 58, totalKg: 21800, herdValue: 38_000_000, salesQty: 22, salesAmount: 14_000_000, purchasesQty: 36, purchasesAmount: 12_000_000, feedCost: 5_100_000, vetCost: 90_000, margin: 22_000_000, prices: { STEER: 1750, COW: 1050, CALF: 2050 } },
+    { name: "Campaña 2024/25", start: new Date(2024, 6, 1), end: new Date(2025, 5, 30), headCount: 66, totalKg: 25200, herdValue: 68_000_000, salesQty: 20, salesAmount: 26_000_000, purchasesQty: 40, purchasesAmount: 22_000_000, feedCost: 7_400_000, vetCost: 110_000, margin: 39_000_000, prices: { STEER: 3000, COW: 1800, CALF: 3400 } },
+  ];
+  for (const cs of closedSeasons) {
+    const s = await prisma.season.create({
+      data: { name: cs.name, startDate: cs.start, endDate: cs.end, isCurrent: false, closedAt: cs.end, farmId: farm.id },
+    });
+    await prisma.seasonClose.create({
+      data: {
+        seasonId: s.id,
+        headCount: cs.headCount, totalKg: cs.totalKg, herdValue: cs.herdValue,
+        salesQty: cs.salesQty, salesAmount: cs.salesAmount, purchasesQty: cs.purchasesQty, purchasesAmount: cs.purchasesAmount,
+        feedCost: cs.feedCost, vetCost: cs.vetCost, margin: cs.margin, prices: cs.prices,
+        ownerSplit: [
+          { name: "Juan Pérez", kg: Math.round(cs.totalKg * 0.6), value: Math.round(cs.herdValue * 0.6), margin: Math.round(cs.margin * 0.6) },
+          { name: "Sofía Gómez", kg: Math.round(cs.totalKg * 0.4), value: Math.round(cs.herdValue * 0.4), margin: Math.round(cs.margin * 0.4) },
+        ],
+      },
+    });
+  }
+
   const totals = {
     animales: await prisma.animal.count(),
     pesajes: await prisma.weighing.count(),
