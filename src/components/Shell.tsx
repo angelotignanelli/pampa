@@ -14,7 +14,6 @@ import {
   IconList,
   IconUsers,
   IconLeaf,
-  IconBell,
   IconHistory,
   IconLogout,
 } from "@/components/icons";
@@ -54,13 +53,11 @@ export function Shell({
   children,
   user,
   badges = {},
-  priceAlert,
   seasons = [],
 }: {
   children: React.ReactNode;
   user: SessionUser;
   badges?: Record<string, number>;
-  priceAlert?: { failing: boolean; sourceName: string; lastOkAt: string | null };
   seasons?: SeasonOption[];
 }) {
   const pathname = usePathname();
@@ -136,18 +133,6 @@ export function Shell({
 
       {/* Panel principal */}
       <div className="panel" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        {priceAlert?.failing && pathname === "/" && (
-          <Link
-            href="/economia"
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 22px", background: "var(--warn-bg, #fcf3e3)", color: "var(--warn-text, #8a5a12)", borderBottom: "1px solid var(--border)", fontSize: 13, textDecoration: "none" }}
-          >
-            <IconBell size={16} />
-            <span>
-              No pudimos actualizar el precio de hacienda ({priceAlert.sourceName}). Estás viendo el último valor guardado.
-            </span>
-            <span style={{ marginLeft: "auto", fontWeight: 500, whiteSpace: "nowrap" }}>Ver Economía →</span>
-          </Link>
-        )}
         {seasons.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 22px", borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
