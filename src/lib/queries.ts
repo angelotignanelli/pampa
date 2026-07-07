@@ -240,6 +240,148 @@ async function _getRations(cat: CatFilter): Promise<RationView[]> {
 }
 export const getRations = (cat: CatFilter) => cached(`getRations:${cat}`, () => _getRations(cat));
 
+// Detalle de la ración de un lote CON su historial de versiones. El consumo acumulado
+// suma cada versión por su período: respeta lo que regía antes y, desde el cambio, lo nuevo.
+export type RationFood = {
+  name: string;
+  type: string;
+  pctCurrent: number; // % en la versión vigente (0 si ya no está)
+  kgDayLotCurrent: number; // kg/día del lote hoy
+  costDayLotCurrent: number;
+  kgAcc: number; // kg acumulados sumando todas las versiones
+  costAcc: number;
+};
+export type RationVersion = {
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  kgPerDay: number;
+  days: number;
+  items: { name: string; percentage: number }[];
+};
+export type RationDetail = {
+  lotId: string;
+  lotName: string;
+  category: string;
+  name: string;
+  effectiveFrom: string; // de la versión vigente
+  headCount: number;
+  avgWeight: number;
+  kgPerDay: number; // total lote/día vigente
+  kgPerHeadDay: number;
+  itemsCurrent: { name: string; type: string; percentage: number; kgPerAnimal: number }[];
+  dryMatterPct: number;
+  proteinPct: number;
+  dmiPerDay: number;
+  dmiBodyWeightPct: number;
+  costPerDay: number; // por animal/día vigente
+  conversion: number;
+  daysTotal: number; // de la primera versión hasta hoy
+  foods: RationFood[];
+  totals: { kgDayLot: number; kgAcc: number; costDayLot: number; costAcc: number };
+  versions: RationVersion[];
+};
+
+async function _getRationDetail(lotId: string): Promise<RationDetail | null> {
+  const [lots, rations] = await Promise.all([
+    getLots("ALL"),
+    prisma.ration.findMany({
+      where: { lotId },
+      include: { items: { include: { ingredient: true } } },
+      orderBy: { effectiveFrom: "asc" },
+    }),
+  ]);
+  if (rations.length === 0) return null;
+  const lot = lots.find((l) => l.id === lotId);
+  const headCount = lot?.headCount ?? 0;
+  const avgWeight = lot?.avgWeight ?? 0;
+  const gdp = lot?.gdp ?? 0;
+  const now = new Date();
+  const current = rations.find((r) => r.effectiveTo === null) ?? rations[rations.length - 1];
+  const kgPerHeadDay = headCount > 0 ? current.kgPerDay / headCount : 0;
+
+  // Métricas de la versión vigente (por animal).
+  const curItems = current.items.map((it) => ({
+    name: it.ingredient.name,
+    type: it.ingredient.type,
+    percentage: it.percentage,
+    kg: (it.percentage / 100) * kgPerHeadDay,
+    dryMatterPct: it.ingredient.dryMatterPct,
+    proteinPct: it.ingredient.proteinPct,
+    costPerKg: it.ingredient.costPerKg,
+  }));
+  const dm = dietDryMatterPct(curItems);
+  const protein = dietProteinPct(curItems);
+  const dmi = dryMatterIntake(kgPerHeadDay, dm);
+
+  // Acumulado por alimento a través de TODAS las versiones (cada una por sus días).
+  const acc = new Map<string, { type: string; kg: number; cost: number }>();
+  const versions: RationVersion[] = rations.map((r) => {
+    const to = r.effectiveTo ?? now;
+    const days = daysBetween(r.effectiveFrom, to);
+    for (const it of r.items) {
+      const kgFoodDayLot = (it.percentage / 100) * r.kgPerDay;
+      const kgAcc = kgFoodDayLot * days;
+      const e = acc.get(it.ingredient.name) ?? { type: it.ingredient.type, kg: 0, cost: 0 };
+      e.kg += kgAcc;
+      e.cost += kgAcc * it.ingredient.costPerKg;
+      acc.set(it.ingredient.name, e);
+    }
+    return {
+      effectiveFrom: r.effectiveFrom.toISOString(),
+      effectiveTo: r.effectiveTo ? r.effectiveTo.toISOString() : null,
+      kgPerDay: r.kgPerDay,
+      days,
+      items: r.items.map((it) => ({ name: it.ingredient.name, percentage: it.percentage })),
+    };
+  });
+
+  const curByName = new Map(current.items.map((it) => [it.ingredient.name, it]));
+  const foods: RationFood[] = [...acc.entries()]
+    .map(([name, a]) => {
+      const cur = curByName.get(name);
+      const kgDayLotCurrent = cur ? (cur.percentage / 100) * current.kgPerDay : 0;
+      return {
+        name,
+        type: a.type,
+        pctCurrent: cur?.percentage ?? 0,
+        kgDayLotCurrent,
+        costDayLotCurrent: kgDayLotCurrent * (cur?.ingredient.costPerKg ?? 0),
+        kgAcc: a.kg,
+        costAcc: a.cost,
+      };
+    })
+    .sort((x, y) => y.kgAcc - x.kgAcc);
+
+  return {
+    lotId,
+    lotName: lot?.name ?? "",
+    category: lot?.category ?? "",
+    name: current.name,
+    effectiveFrom: current.effectiveFrom.toISOString(),
+    headCount,
+    avgWeight,
+    kgPerDay: current.kgPerDay,
+    kgPerHeadDay,
+    itemsCurrent: curItems.map(({ name, type, percentage, kg }) => ({ name, type, percentage, kgPerAnimal: kg })),
+    dryMatterPct: dm,
+    proteinPct: protein,
+    dmiPerDay: dmi,
+    dmiBodyWeightPct: dmiAsBodyWeightPct(dmi, avgWeight),
+    costPerDay: rationCostPerDay(kgPerHeadDay, curItems),
+    conversion: gdp > 0 ? feedConversion(dmi, gdp) : 0,
+    daysTotal: daysBetween(rations[0].effectiveFrom, now),
+    foods,
+    totals: {
+      kgDayLot: current.kgPerDay,
+      kgAcc: versions.reduce((s, v) => s + v.kgPerDay * v.days, 0),
+      costDayLot: foods.reduce((s, f) => s + f.costDayLotCurrent, 0),
+      costAcc: foods.reduce((s, f) => s + f.costAcc, 0),
+    },
+    versions,
+  };
+}
+export const getRationDetail = (lotId: string) => cached(`getRationDetail:${lotId}`, () => _getRationDetail(lotId));
+
 export type AnimalRow = {
   tag: string;
   prevKg: number | null;

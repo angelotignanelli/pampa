@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { getRations } from "@/lib/queries";
+import { getRationDetail } from "@/lib/queries";
 import { categoryLabel, formatARS, formatKg } from "@/lib/domain";
 import { pctFmt, gdpFmt, pillClass } from "@/lib/cat";
 import { IconArrowLeft, IconPlus } from "@/components/icons";
 import { LinkSpinner } from "@/components/LinkSpinner";
 
 const MIX_COLOR: Record<string, string> = { CARB: "#EF9F27", FIBER: "#97C459", PROTEIN: "#85B7EB" };
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
 
 function compactARS(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toLocaleString("es-AR", { maximumFractionDigits: 1 })}M`;
@@ -15,8 +16,7 @@ function compactARS(n: number): string {
 
 export default async function RacionLotePage({ params }: { params: Promise<{ lotId: string }> }) {
   const { lotId } = await params;
-  const rations = await getRations("ALL");
-  const r = rations.find((x) => x.lotId === lotId);
+  const r = await getRationDetail(lotId);
 
   if (!r) {
     return (
@@ -29,23 +29,8 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
     );
   }
 
-  const days = r.daysInFeedlot;
-  const totalLotKg = Math.round(r.headCount * r.avgWeight); // kg vivos de todo el lote (último pesaje)
-  // Ración del mixer a nivel lote (por día) y acumulada en el corral.
-  const racionKgDayLot = r.kgPerDay;
-  const items = r.items.map((it) => {
-    const kgDayLot = it.kg * r.headCount; // kg de ese alimento por día, todo el lote
-    return {
-      ...it,
-      kgDayLot,
-      kgAccum: kgDayLot * days,
-      costDayLot: kgDayLot * it.costPerKg,
-      costAccum: kgDayLot * it.costPerKg * days,
-    };
-  });
-  const totalCostDayLot = r.costPerDay * r.headCount;
-  const totalCostAccum = totalCostDayLot * days;
-  const totalKgAccum = racionKgDayLot * days;
+  const days = r.daysTotal;
+  const totalLotKg = Math.round(r.headCount * r.avgWeight);
 
   return (
     <>
@@ -57,13 +42,13 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
           <h2 className="section-title" style={{ margin: 0 }}>{r.lotName}</h2>
           <span className={`pill ${pillClass(r.category)}`}>{categoryLabel(r.category)}</span>
         </div>
-        <Link href="/alimentacion/nuevo" className="btn btn-primary"><IconPlus size={14} /> Nueva receta</Link>
+        <Link href={`/alimentacion/nuevo?lot=${r.lotId}`} className="btn btn-primary"><IconPlus size={14} /> Cambiar ración</Link>
       </div>
 
       {/* Estado del corral */}
       <div className="grid g4" style={{ marginBottom: 12 }}>
         <div className="mcard"><p className="label">Cabezas</p><p className="value" style={{ fontSize: 20 }}>{r.headCount}</p><p className="sub">en el corral</p></div>
-        <div className="mcard"><p className="label">Días en el corral</p><p className="value" style={{ fontSize: 20 }}>{days}</p><p className="sub">desde el inicio de la ración</p></div>
+        <div className="mcard"><p className="label">Días en el corral</p><p className="value" style={{ fontSize: 20 }}>{days}</p><p className="sub">desde la primera ración</p></div>
         <div className="mcard"><p className="label">Peso prom. / animal</p><p className="value" style={{ fontSize: 20 }}>{formatKg(Math.round(r.avgWeight))}</p><p className="sub">último pesaje</p></div>
         <div className="mcard"><p className="label">Peso vivo del lote</p><p className="value" style={{ fontSize: 20 }}>{formatKg(totalLotKg)}</p><p className="sub">{r.headCount} × {Math.round(r.avgWeight)} kg</p></div>
       </div>
@@ -75,11 +60,11 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
             Vigente desde {new Date(r.effectiveFrom).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })}
           </p>
           <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 9 }}>
-            {r.items.map((it) => (
+            {r.itemsCurrent.map((it) => (
               <div key={it.name}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                   <span>{it.name}</span>
-                  <strong>{Math.round(it.percentage)}% · {formatKg(it.kg, 2)}/animal</strong>
+                  <strong>{Math.round(it.percentage)}% · {formatKg(it.kgPerAnimal, 2)}/animal</strong>
                 </div>
                 <div className="track">
                   <span style={{ width: `${it.percentage}%`, background: MIX_COLOR[it.type] ?? "#999" }} />
@@ -105,10 +90,10 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
         </div>
       </div>
 
-      {/* Desglose del mixer a nivel lote: por día y acumulado en el corral */}
+      {/* Consumo del lote: por día (vigente) y acumulado sumando todas las versiones */}
       <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 12 }}>
         <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 500 }}>
-          Consumo del lote · qué se le da por día y acumulado en {days} días
+          Consumo del lote · por día (ración actual) y acumulado en {days} días
         </div>
         <table className="data-table">
           <thead>
@@ -121,33 +106,60 @@ export default async function RacionLotePage({ params }: { params: Promise<{ lot
             </tr>
           </thead>
           <tbody>
-            {items.map((it) => (
-              <tr key={it.name}>
+            {r.foods.map((f) => (
+              <tr key={f.name}>
                 <td style={{ fontWeight: 500 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 2, background: MIX_COLOR[it.type] ?? "#999", display: "inline-block" }} />
-                    {it.name}
+                    <span style={{ width: 9, height: 9, borderRadius: 2, background: MIX_COLOR[f.type] ?? "#999", display: "inline-block" }} />
+                    {f.name}
                   </span>
                 </td>
-                <td className="num">{formatKg(Math.round(it.kgDayLot))}</td>
-                <td className="num">{formatKg(Math.round(it.kgAccum))}</td>
-                <td className="num">{compactARS(it.costDayLot)}</td>
-                <td className="num">{compactARS(it.costAccum)}</td>
+                <td className="num">{f.kgDayLotCurrent > 0 ? formatKg(Math.round(f.kgDayLotCurrent)) : "—"}</td>
+                <td className="num">{formatKg(Math.round(f.kgAcc))}</td>
+                <td className="num">{f.costDayLotCurrent > 0 ? compactARS(f.costDayLotCurrent) : "—"}</td>
+                <td className="num">{compactARS(f.costAcc)}</td>
               </tr>
             ))}
             <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 600 }}>
               <td>Total ración</td>
-              <td className="num">{formatKg(Math.round(racionKgDayLot))}</td>
-              <td className="num">{formatKg(Math.round(totalKgAccum))}</td>
-              <td className="num">{compactARS(totalCostDayLot)}</td>
-              <td className="num">{compactARS(totalCostAccum)}</td>
+              <td className="num">{formatKg(Math.round(r.totals.kgDayLot))}</td>
+              <td className="num">{formatKg(Math.round(r.totals.kgAcc))}</td>
+              <td className="num">{compactARS(r.totals.costDayLot)}</td>
+              <td className="num">{compactARS(r.totals.costAcc)}</td>
             </tr>
           </tbody>
         </table>
         <div style={{ padding: "8px 14px", fontSize: 11, color: "var(--text-tertiary)", borderTop: "1px solid var(--border)" }}>
-          &quot;Acumulado&quot; estima el total entregado desde que arrancó la ración ({days} días), asumiendo {r.headCount} cabezas constantes.
+          El acumulado suma cada tramo con la ración y composición que regía en ese período. Asume las cabezas del lote constantes.
         </div>
       </div>
+
+      {/* Historial de raciones (solo si hubo cambios) */}
+      {r.versions.length > 1 && (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 500 }}>
+            Historial de raciones
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr><th>Desde</th><th>Hasta</th><th className="num">Ración/día</th><th className="num">Días</th><th>Composición</th></tr>
+            </thead>
+            <tbody>
+              {[...r.versions].reverse().map((v, i) => (
+                <tr key={v.effectiveFrom + i}>
+                  <td>{fmtDate(v.effectiveFrom)}</td>
+                  <td>{v.effectiveTo ? fmtDate(v.effectiveTo) : <span className="pill" style={{ background: "var(--success-bg)", color: "var(--success-text)" }}>vigente</span>}</td>
+                  <td className="num">{formatKg(Math.round(v.kgPerDay))}</td>
+                  <td className="num">{v.days}</td>
+                  <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                    {v.items.map((it) => `${it.name} ${Math.round(it.percentage)}%`).join(" · ")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   );
 }

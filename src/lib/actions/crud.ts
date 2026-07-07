@@ -159,6 +159,11 @@ export async function createRation(formData: FormData) {
     .filter((it) => it.percentage > 0);
 
   const effectiveFrom = date(formData.get("effectiveFrom"));
+  // La fecha del cambio no puede ser anterior a la ración vigente (dejaría un período negativo).
+  const vigente = await prisma.ration.findFirst({ where: { lotId, effectiveTo: null } });
+  if (vigente && effectiveFrom < vigente.effectiveFrom) {
+    throw new Error("La fecha debe ser igual o posterior al inicio de la ración vigente");
+  }
   // Versionado: la ración vigente del lote se "cierra" al arrancar la nueva (no se pisa el histórico).
   await prisma.ration.updateMany({
     where: { lotId, effectiveTo: null },
@@ -175,7 +180,8 @@ export async function createRation(formData: FormData) {
   });
   clearFarmCache();
   revalidatePath("/alimentacion");
-  redirect("/alimentacion");
+  revalidatePath(`/alimentacion/${lotId}`);
+  redirect(`/alimentacion/${lotId}`);
 }
 
 // Cierra una campaña: congela los KPIs (stock, valor, costos, reparto por socio y precios
